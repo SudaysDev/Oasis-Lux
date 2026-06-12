@@ -1,0 +1,343 @@
+@import "tailwindcss";
+
+/* ============================= OASIS LUX tokens ============================ */
+:root {
+  /* dark (default) */
+  --bg: #05070d;
+  --bg-elev: #0a0e18;
+  --panel: rgba(255, 255, 255, 0.06);
+  --panel-strong: #111726;
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --fg: #e6f1ff;
+  --fg-muted: #8aa0b8;
+  --accent: #22d3ee;
+  --accent-2: #a855f7;
+  --accent-glow: rgba(34, 211, 238, 0.45);
+  --danger: #f43f5e;
+  --success: #34d399;
+}
+
+html.light {
+  --bg: #f4f7fb;
+  --bg-elev: #ffffff;
+  --panel: rgba(10, 20, 40, 0.05);
+  --panel-strong: #eef2f8;
+  --panel-border: rgba(10, 20, 40, 0.12);
+  --fg: #0a1424;
+  --fg-muted: #51647a;
+  --accent: #0891b2;
+  --accent-2: #7c3aed;
+  --accent-glow: rgba(8, 145, 178, 0.3);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* Smooth dark <-> light crossfade. The `theme-anim` class is added to <html>
+   only for the duration of a toggle so we never pay the transition cost on
+   hover / normal interactions. */
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition: background-color 0.5s ease, border-color 0.5s ease,
+    color 0.5s ease, fill 0.5s ease, stroke 0.5s ease, box-shadow 0.5s ease !important;
+}
+
+/* ----------------------------- helpers ----------------------------------- */
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(16px);
+}
+.neon-text {
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+/* hide scrollbar but keep scrolling (used by the Gemini-style AI chat) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* full-page scrollbar suppression while on the AI page (toggled via <html> class) */
+html.hide-scrollbars, html.hide-scrollbars * { scrollbar-width: none; }
+html.hide-scrollbars *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* neon dual-range price slider (two overlaid inputs; track filled via JS-set CSS vars) */
+.range-neon {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.range-neon::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 9999px;
+  background: var(--accent);
+  border: 2px solid var(--bg-elev);
+  box-shadow: 0 0 10px var(--accent-glow);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.range-neon::-webkit-slider-thumb:hover { transform: scale(1.15); }
+.range-neon::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border: 2px solid var(--bg-elev);
+  border-radius: 9999px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* rich-text (contenteditable) helpers for the listing description */
+.rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+.rich-editor b, .rich-editor strong { font-weight: 700; }
+.rich-editor i, .rich-editor em { font-style: italic; }
+.neon-border {
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow), inset 0 0 8px var(--accent-glow);
+}
+.grid-mesh {
+  background-image: linear-gradient(var(--panel-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel-border) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* solid elevated surface — use instead of .glass where see-through looks raw */
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--panel-border);
+}
+.card-strong {
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+}
+
+/* opaque popover / modal surface — readable on BOTH themes (glass was too
+   see-through on light mode). Slightly tinted toward the elevated bg. */
+.popover {
+  background: color-mix(in oklab, var(--bg-elev) 96%, var(--accent) 4%);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 24px 70px -28px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--panel-border);
+}
+html.light .popover {
+  box-shadow: 0 24px 70px -30px rgba(10, 20, 40, 0.28), 0 0 0 1px var(--panel-border);
+}
+/* form field: solid, not transparent */
+.field {
+  background: var(--panel-strong);
+  border: 1px solid var(--panel-border);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* slim themed scrollbars (kills the default chunky/ugly bar) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--accent) 55%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--accent) 45%, transparent);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+::selection {
+  background: var(--accent);
+  color: #00111a;
+}
+
+/* ----------------------------- auth / fx --------------------------------- */
+@keyframes oasis-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes oasis-ripple {
+  0% { transform: scale(0.9); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+@keyframes oasis-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+@keyframes oasis-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(900%); }
+}
+@keyframes oasis-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes oasis-grid-pan {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 40px; }
+}
+
+.animate-float { animation: oasis-float 6s ease-in-out infinite; }
+.animate-spin-slow { animation: oasis-spin 1s linear infinite; }
+.shake { animation: oasis-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+/* pulsing ring that hints "this is interactive" */
+.ripple-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid var(--accent);
+  animation: oasis-ripple 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+/* terminal scanline sweep */
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28%;
+  background: linear-gradient(to bottom, transparent, var(--accent-glow), transparent);
+  opacity: 0.12;
+  animation: oasis-scan 5.5s linear infinite;
+  pointer-events: none;
+}
+
+.animated-grid {
+  background-image: linear-gradient(var(--panel-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel-border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: oasis-grid-pan 8s linear infinite;
+}
+
+/* the dark "secure terminal" panel — translucent so particles glow faintly behind */
+.auth-terminal {
+  background: color-mix(in oklab, var(--bg-elev) 78%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+/* ----------------------------- landing ----------------------------------- */
+@keyframes oasis-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: oasis-marquee var(--marquee-duration, 28s) linear infinite;
+}
+.marquee-reverse {
+  animation-direction: reverse;
+}
+
+/* fade the horizontal edges of a scroller / marquee */
+.mask-fade-x {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+
+/* outlined "ghost" headline text */
+.text-stroke {
+  color: transparent;
+  -webkit-text-stroke: 1px var(--panel-border);
+}
+
+/* rainbow gradient for big-discount badges (bigger discount → more wow) */
+.badge-rainbow {
+  background: linear-gradient(110deg, #f43f5e, #f59e0b, #22d3ee, #a855f7, #f43f5e);
+  background-size: 300% 100%;
+  animation: oasis-grid-pan 3s linear infinite;
+  background-position: 0 0;
+}
+@keyframes oasis-rainbow-pan {
+  to { background-position: 300% 0; }
+}
+.badge-rainbow {
+  animation: oasis-rainbow-pan 3s linear infinite;
+}
+
+/* swiper: continuous "marquee" autoplay needs a linear transition */
+.oasis-swiper .swiper-slide {
+  height: auto;
+}
+.oasis-swiper .swiper-wrapper {
+  transition-timing-function: linear;
+}
+
+/* featured (fade) carousel pagination */
+.oasis-featured {
+  padding-bottom: 2.5rem;
+}
+.oasis-featured .swiper-pagination-bullet {
+  background: var(--fg-muted);
+  opacity: 0.5;
+}
+.oasis-featured .swiper-pagination-bullet-active {
+  background: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* floating-label input: label lifts when the field has content or focus */
+.float-field { position: relative; }
+.float-field > label {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+  transition: all 0.18s ease;
+}
+.float-field:focus-within > label,
+.float-field.filled > label {
+  top: 0;
+  transform: translateY(-50%) scale(0.82);
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--accent-glow);
+}
