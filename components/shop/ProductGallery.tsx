@@ -21,7 +21,7 @@ function DiscountFlag({ pct, off }: { pct: number; off: string }) {
     pct >= 70
       ? "badge-rainbow text-white shadow-[0_0_22px_rgba(168,85,247,0.6)]"
       : pct >= 40
-        ? "bg-gradient-to-r from-accent to-accent-2 text-black"
+        ? "bg-gradient-to-r from-accent to-accent-2 text-on-accent"
         : "bg-accent/20 text-accent";
   return (
     <span className={cn("absolute left-4 top-4 z-20 rounded-full px-3 py-1.5 font-mono text-xs font-bold", tier)}>

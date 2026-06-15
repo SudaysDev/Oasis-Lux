@@ -357,7 +357,7 @@ export function CheckoutView({ profile }: { profile: Profile }) {
               onClick={placeOrder}
               disabled={placing}
               whileTap={placing ? undefined : { scale: 0.98 }}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 py-3.5 text-sm font-bold text-black shadow-[0_16px_44px_-12px_var(--accent-glow)] transition hover:brightness-110 disabled:opacity-70"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 py-3.5 text-sm font-bold text-on-accent shadow-[0_16px_44px_-12px_var(--accent-glow)] transition hover:brightness-110 disabled:opacity-70"
             >
               {placing ? (
                 <>

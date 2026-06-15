@@ -77,9 +77,14 @@ export function AuthForm({
         setOtp(res.devCode); // dev convenience: auto-fill the issued code
         setDevHint(res.devCode);
         toast.success(`Code issued · ${res.devCode}`);
+        if (res.emailSent === false) {
+          toast(`Email not delivered — ${res.emailError ?? "verify a domain in Resend"}`, { icon: "✉️", duration: 6000 });
+        } else if (res.emailSent) {
+          toast.success("Also emailed to your inbox ✓");
+        }
       } else {
-        setDevHint(res.masterHint ?? null);
-        toast.success("Code sent — check your inbox.");
+        setDevHint(null);
+        toast.success("Code sent — check your inbox (and spam).");
       }
       otpRef.current?.focus();
     });

@@ -183,7 +183,7 @@ export function ReviewsSection({
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-semibold">{rep.author.fullName || `@${rep.author.username}`}</span>
                             {rep.isSubject && (
-                              <span className="rounded-full bg-accent px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+                              <span className="rounded-full bg-accent px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-on-accent">
                                 Author
                               </span>
                             )}

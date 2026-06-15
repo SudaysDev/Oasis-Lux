@@ -125,7 +125,7 @@ export function FavoritesView() {
             <button
               type="button"
               onClick={addAllToCart}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-black shadow-[0_14px_40px_-14px_var(--accent-glow)] transition hover:brightness-110"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-on-accent shadow-[0_14px_40px_-14px_var(--accent-glow)] transition hover:brightness-110"
             >
               <ShoppingBag className="h-4 w-4" /> {t("fav.addAll")}
             </button>

@@ -89,7 +89,7 @@ function BentoTile({ product, large }: { product: DemoProduct; large: boolean })
         <span
           className={cn(
             "absolute left-3 top-3 z-10 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold",
-            product.discount >= 70 ? "badge-rainbow text-white" : "bg-accent/25 text-accent backdrop-blur-md",
+            product.discount >= 70 ? "badge-rainbow text-white" : "bg-black/55 text-[#22d3ee] backdrop-blur-md",
           )}
         >
           −{product.discount}%
@@ -130,7 +130,7 @@ function BentoTile({ product, large }: { product: DemoProduct; large: boolean })
               ? "cursor-not-allowed bg-white/10 text-white/40"
               : inCart > 0
                 ? "bg-success/80 text-white"
-                : "bg-accent text-black hover:scale-110 active:scale-90",
+                : "bg-[#22d3ee] text-black hover:scale-110 active:scale-90",
           )}
         >
           <Plus className="h-4 w-4" />

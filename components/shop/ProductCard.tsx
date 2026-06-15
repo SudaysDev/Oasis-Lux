@@ -26,7 +26,7 @@ function DiscountBadge({ pct, promo }: { pct: number; promo?: boolean }) {
     pct >= 70
       ? "badge-rainbow text-white shadow-[0_0_18px_rgba(168,85,247,0.6)]"
       : pct >= 40
-        ? "bg-gradient-to-r from-accent to-accent-2 text-black"
+        ? "bg-gradient-to-r from-accent to-accent-2 text-on-accent"
         : "bg-accent/20 text-accent";
   return (
     <span className={cn("absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] font-bold", tier)}>

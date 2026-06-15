@@ -15,6 +15,9 @@
   --accent-glow: rgba(34, 211, 238, 0.45);
   --danger: #f43f5e;
   --success: #34d399;
+  /* readable foreground ON an accent-coloured surface (button fills, badges).
+     Dark theme accent is bright cyan → use near-black text. */
+  --on-accent: #04141a;
 }
 
 html.light {
@@ -28,6 +31,8 @@ html.light {
   --accent: #0891b2;
   --accent-2: #7c3aed;
   --accent-glow: rgba(8, 145, 178, 0.3);
+  /* light theme accent is dark teal/purple → text on it must be white */
+  --on-accent: #ffffff;
 }
 
 @theme inline {
@@ -37,6 +42,7 @@ html.light {
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
@@ -391,21 +397,16 @@ html.light .popover {
 .swipe-hint svg { animation: oasis-nudge 1.6s ease-in-out infinite; }
 
 /* --------------------- featured hero (text over image) ------------------- */
-/* legibility scrim so overlaid copy reads on any product art */
+/* legibility scrim so overlaid copy reads on any product art. Text-over-image
+   always needs a dark backing + light text, so this stays dark in BOTH themes
+   (it sits on imagery, not on the page surface). */
 .hero-scrim {
   background: linear-gradient(
     180deg,
-    rgba(5, 7, 13, 0) 0%,
-    rgba(5, 7, 13, 0.15) 45%,
-    rgba(5, 7, 13, 0.78) 100%
-  );
-}
-html.light .hero-scrim {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(15, 23, 42, 0.08) 45%,
-    rgba(2, 6, 23, 0.72) 100%
+    rgba(3, 6, 13, 0) 0%,
+    rgba(3, 6, 13, 0.28) 42%,
+    rgba(3, 6, 13, 0.7) 72%,
+    rgba(3, 6, 13, 0.92) 100%
   );
 }
 /* slow ken-burns drift on the hero art */

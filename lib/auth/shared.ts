@@ -11,7 +11,7 @@ export type AuthFormState =
 
 /** Result of requesting an OTP token. */
 export type OtpResult =
-  | { ok: true; devCode?: string; masterHint?: string }
+  | { ok: true; devCode?: string; emailSent?: boolean; emailError?: string }
   | { ok: false; error: string };
 
 export const SOCIAL_ORDER: SocialPlatform[] = ["telegram", "instagram", "tiktok", "whatsapp"];

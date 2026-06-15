@@ -96,7 +96,7 @@ export function OrderTracking({ order }: { order: OrderRecord }) {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link
               href="/home"
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-black shadow-[0_14px_40px_-14px_var(--accent-glow)] transition hover:brightness-110"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent to-accent-2 px-4 py-2.5 text-sm font-bold text-on-accent shadow-[0_14px_40px_-14px_var(--accent-glow)] transition hover:brightness-110"
             >
               <Home className="h-4 w-4" /> Back to home
             </Link>
@@ -148,7 +148,7 @@ export function OrderTracking({ order }: { order: OrderRecord }) {
                     <li key={s} className="flex items-center gap-3">
                       <span className={cn(
                         "grid h-7 w-7 shrink-0 place-items-center rounded-full border transition",
-                        done ? "border-accent bg-accent text-black" : "border-[var(--panel-border)] text-fg-muted",
+                        done ? "border-accent bg-accent text-on-accent" : "border-[var(--panel-border)] text-fg-muted",
                         active && "shadow-[0_0_14px_var(--accent-glow)]",
                       )}>
                         {done ? <Check className="h-4 w-4" strokeWidth={3} /> : <span className="text-xs">{i + 1}</span>}

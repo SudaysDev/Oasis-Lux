@@ -39,16 +39,20 @@ export async function requestOtp(
     .insert({ email, code, purpose, expires_at: expiresAt });
   if (error) return { ok: false, error: "Could not issue a code. Try again." };
 
-  // Dev convenience: echo the code straight to the UI (no inbox needed).
-  if (authConfig.devOtpEcho) {
-    return { ok: true, devCode: code, masterHint: authConfig.devOtp || undefined };
-  }
-
+  // ALWAYS attempt real email delivery (Resend).
   const sent = await sendOtpEmail(email, code, otpLocale(locale));
-  if (!sent.ok) {
-    return { ok: false, error: "Could not send the code to that address. Check it and try again." };
+
+  // Dev echo just *additionally* surfaces the code so local testing never
+  // blocks — the email is still dispatched above. We also report whether the
+  // email truly went out (Resend's sandbox sender only delivers to your own
+  // account address until you verify a domain).
+  if (authConfig.devOtpEcho) {
+    return { ok: true, devCode: code, emailSent: sent.ok, emailError: sent.ok ? undefined : sent.error };
   }
-  return { ok: true };
+  if (!sent.ok) {
+    return { ok: false, error: `Could not email the code: ${sent.error}` };
+  }
+  return { ok: true, emailSent: true };
 }
 
 // ---------------------------------------------------------------------------

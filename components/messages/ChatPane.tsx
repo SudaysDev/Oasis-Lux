@@ -335,7 +335,7 @@ export function ChatPane({ meId, peerId, peer: peerInitial }: { meId: string; pe
               <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
               Recording… {String(Math.floor(recSec / 60)).padStart(2, "0")}:{String(recSec % 60).padStart(2, "0")}
             </div>
-            <button type="button" onClick={() => stopRec(false)} aria-label="Send voice" className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-r from-accent to-accent-2 text-black transition hover:brightness-110">
+            <button type="button" onClick={() => stopRec(false)} aria-label="Send voice" className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-r from-accent to-accent-2 text-on-accent transition hover:brightness-110">
               <Send className="h-5 w-5" />
             </button>
           </div>
@@ -363,7 +363,7 @@ export function ChatPane({ meId, peerId, peer: peerInitial }: { meId: string; pe
               className="field max-h-32 min-h-[40px] flex-1 resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
             />
             {text.trim() ? (
-              <button type="button" onClick={() => void send(text)} disabled={sending} aria-label="Send" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-accent to-accent-2 text-black transition hover:brightness-110 disabled:opacity-50">
+              <button type="button" onClick={() => void send(text)} disabled={sending} aria-label="Send" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-r from-accent to-accent-2 text-on-accent transition hover:brightness-110 disabled:opacity-50">
                 {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </button>
             ) : (
@@ -413,7 +413,7 @@ function MessageBubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
   }
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={cn("flex", mine ? "justify-end" : "justify-start")}>
-      <div className={cn("max-w-[78%] rounded-2xl px-3.5 py-2.5", mine ? "bg-gradient-to-br from-accent to-accent-2 text-black" : "card")}>
+      <div className={cn("max-w-[78%] rounded-2xl px-3.5 py-2.5", mine ? "bg-gradient-to-br from-accent to-accent-2 text-on-accent" : "card")}>
         {m.attachments.map((src) =>
           AUDIO_RE.test(src) ? (
             <audio key={src} controls src={src} className="my-1 h-9 w-56 max-w-full" />
@@ -423,7 +423,7 @@ function MessageBubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
           ),
         )}
         {m.text && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.text}</p>}
-        <div className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", mine ? "text-black/60" : "text-fg-muted")}>
+        <div className={cn("mt-1 flex items-center justify-end gap-1 text-[10px]", mine ? "text-on-accent/60" : "text-fg-muted")}>
           {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })}
           {mine && (m.read ? <CheckCheck className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />)}
         </div>

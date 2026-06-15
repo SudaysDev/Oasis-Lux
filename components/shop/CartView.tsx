@@ -40,7 +40,7 @@ function CheckBox({ checked, onClick, label, disabled }: { checked: boolean; onC
         disabled
           ? "cursor-not-allowed border-[var(--panel-border)] opacity-40"
           : checked
-            ? "border-accent bg-accent text-black shadow-[0_0_10px_var(--accent-glow)]"
+            ? "border-accent bg-accent text-on-accent shadow-[0_0_10px_var(--accent-glow)]"
             : "border-[var(--panel-border)] text-transparent hover:border-accent",
       )}
     >
@@ -481,7 +481,7 @@ export function CartView() {
                 "mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold transition",
                 noneSelected
                   ? "cursor-not-allowed bg-[var(--panel)] text-fg-muted"
-                  : "bg-gradient-to-r from-accent to-accent-2 text-black shadow-[0_16px_44px_-12px_var(--accent-glow)] hover:brightness-110",
+                  : "bg-gradient-to-r from-accent to-accent-2 text-on-accent shadow-[0_16px_44px_-12px_var(--accent-glow)] hover:brightness-110",
               )}
             >
               {noneSelected ? t("cart.selectToCheckout") : t("cart.proceed")}

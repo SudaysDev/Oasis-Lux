@@ -257,7 +257,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                   product.discount >= 70
                     ? "badge-rainbow text-white"
                     : product.discount >= 40
-                      ? "bg-gradient-to-r from-accent to-accent-2 text-black"
+                      ? "bg-gradient-to-r from-accent to-accent-2 text-on-accent"
                       : "bg-accent/20 text-accent",
                 )}
               >
@@ -378,7 +378,7 @@ export function ProductDetail({ productId }: { productId: string }) {
                 "flex h-12 flex-1 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition",
                 soldOut
                   ? "cursor-not-allowed bg-[var(--panel)] text-fg-muted opacity-60"
-                  : "bg-gradient-to-r from-accent to-accent-2 text-black shadow-[0_14px_40px_-12px_var(--accent-glow)] hover:brightness-110",
+                  : "bg-gradient-to-r from-accent to-accent-2 text-on-accent shadow-[0_14px_40px_-12px_var(--accent-glow)] hover:brightness-110",
               )}
             >
               <Zap className="h-4.5 w-4.5" /> {t("prod.buyNow")}

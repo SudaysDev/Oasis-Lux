@@ -10,7 +10,7 @@ export function PlanBadge({ plan, className }: { plan: Plan; className?: string 
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider",
-        elite ? "badge-rainbow text-white" : "bg-gradient-to-r from-accent to-accent-2 text-black",
+        elite ? "badge-rainbow text-white" : "bg-gradient-to-r from-accent to-accent-2 text-on-accent",
         className,
       )}
     >

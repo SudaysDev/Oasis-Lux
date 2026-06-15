@@ -97,7 +97,7 @@ export function MessagesView({
                           {fromMe && "You: "}{c.lastMessage || "New conversation"}
                         </p>
                         {c.unread > 0 && (
-                          <span className="ml-auto grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-black">
+                          <span className="ml-auto grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-accent px-1.5 text-[10px] font-bold text-on-accent">
                             {c.unread}
                           </span>
                         )}

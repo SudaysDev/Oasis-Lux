@@ -94,7 +94,7 @@ function HeroTile({
 
       {/* top badge */}
       <div className="absolute left-4 top-4 z-10 flex items-center gap-2">
-        <span className="rounded-full bg-black/45 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-accent backdrop-blur-md">
+        <span className="rounded-full bg-black/55 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-[#22d3ee] backdrop-blur-md">
           {badge}
         </span>
         {product.discount ? (
@@ -104,7 +104,7 @@ function HeroTile({
               product.discount >= 70
                 ? "badge-rainbow text-white shadow-[0_0_18px_rgba(168,85,247,0.6)]"
                 : product.discount >= 40
-                  ? "bg-gradient-to-r from-accent to-accent-2 text-black"
+                  ? "bg-gradient-to-r from-accent to-accent-2 text-on-accent"
                   : "bg-accent/25 text-accent",
             )}
           >
@@ -136,7 +136,7 @@ function HeroTile({
           )}
         </div>
         {/* a text "link", not a bordered button */}
-        <span className="hero-link mt-2 text-sm text-accent">
+        <span className="hero-link mt-2 text-sm text-[#22d3ee]">
           {t("common.viewProduct")}
           <ArrowRight className="h-4 w-4" />
         </span>
