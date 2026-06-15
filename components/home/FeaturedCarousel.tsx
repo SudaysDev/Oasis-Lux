@@ -8,13 +8,17 @@ import "swiper/css/pagination";
 import { Ban, Check, Plus } from "lucide-react";
 import { ProductArt } from "@/components/landing/ProductArt";
 import { useCart } from "@/hooks/useCart";
-import { cn, formatPrice } from "@/lib/utils";
+import { useMoney } from "@/hooks/useMoney";
+import { useT } from "@/hooks/useT";
+import { cn } from "@/lib/utils";
 import { DEMO_PRODUCTS } from "@/lib/landing-data";
 
 const FEATURED = DEMO_PRODUCTS.filter((p) => p.tag || (p.discount ?? 0) >= 40).slice(0, 4);
 
 export function FeaturedCarousel() {
   const { addRaw, items } = useCart();
+  const { money } = useMoney();
+  const { t } = useT();
 
   return (
     <section className="mt-8">
@@ -40,7 +44,7 @@ export function FeaturedCarousel() {
                 />
                 <div className="relative flex flex-col justify-center">
                   <p className="neon-text font-mono text-[11px] uppercase tracking-[0.3em] text-accent">
-                    {p.tag ?? "Limited drop"}
+                    {p.tag ?? t("home.limitedDrop")}
                   </p>
                   <h3 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{p.title}</h3>
                   <p className="mt-1 font-mono text-xs uppercase tracking-[0.2em] text-fg-muted">
@@ -48,8 +52,8 @@ export function FeaturedCarousel() {
                     {p.volume ? ` · ${p.volume}` : ""}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <span className="text-2xl font-black">{formatPrice(p.price)}</span>
-                    {oldPrice && <span className="font-mono text-sm text-fg-muted line-through">{formatPrice(oldPrice)}</span>}
+                    <span className="text-2xl font-black">{money(p.price)}</span>
+                    {oldPrice && <span className="font-mono text-sm text-fg-muted line-through">{money(oldPrice)}</span>}
                     {p.discount ? (
                       <span className="badge-rainbow rounded-full px-2 py-0.5 text-xs font-bold text-white">−{p.discount}%</span>
                     ) : null}
@@ -67,10 +71,10 @@ export function FeaturedCarousel() {
                       )}
                     >
                       {soldOut ? <Ban className="h-4 w-4" /> : inCartQty > 0 ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                      {soldOut ? "Sold out" : inCartQty > 0 ? `In cart · ${inCartQty}` : "Add to cart"}
+                      {soldOut ? t("common.soldOut") : inCartQty > 0 ? `${t("common.inCart")} · ${inCartQty}` : t("common.addToCart")}
                     </button>
                     <Link href={`/product/${p.id}`} className="glass flex items-center rounded-full px-6 py-3 text-sm transition hover:neon-border">
-                      View product
+                      {t("common.viewProduct")}
                     </Link>
                   </div>
                 </div>

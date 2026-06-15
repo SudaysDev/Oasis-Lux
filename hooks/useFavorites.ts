@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { toggleFavorite } from "@/store";
+import { clearFavorites, toggleFavorite } from "@/store";
 import { getBrowserClient } from "@/lib/supabase/client";
-import { addFavoriteRow, removeFavoriteRow } from "@/lib/supabase/persistence";
+import { addFavoriteRow, clearFavoriteRows, removeFavoriteRow } from "@/lib/supabase/persistence";
 import { useAuth } from "./useAuth";
 
 /** Wishlist toggle — optimistic Redux update + write-through to Supabase. */
@@ -39,5 +39,10 @@ export function useFavorites() {
     toggleRaw(id);
   };
 
-  return { ids, has, toggle, toggleRaw, count: ids.length };
+  const clearAll = () => {
+    dispatch(clearFavorites());
+    if (userId) void clearFavoriteRows(getBrowserClient(), userId).catch(() => {});
+  };
+
+  return { ids, has, toggle, toggleRaw, clearAll, count: ids.length };
 }

@@ -182,12 +182,119 @@
   (so the Oasis Helper history lists assistant chats too) and opens a specific chat via `/ai?chat=<id>`.
   Helper history click → `router.push('/ai?chat=id')` (opens in the assistant, not the helper).
 
-## 🔜 NEXT — still open (owner asked, needs DB / bigger work)
-- **product/[id] FULL page** (still a stub): media gallery (1 big + 3 thumbs), full info,
-  bottom recommendations (click → reload with that product), **two CTAs: Message seller /
-  Order** (order auto-pings the seller's Telegram/Instagram for free), buyer order page
-  (id, product, seller + reviews, ETA, REAL map of where it's headed), **cancel allowed
-  only within first 15 min** then auto-locked.
+## ✅ DONE — Phase 3.3: live products, catalog, i18n, currency (build OK)
+- **Live products everywhere:** `lib/data/products.ts` + `hooks/useLiveProducts` merge real
+  seller listings (DB `products`) in front of the demo seed → they now show on Home rows,
+  Catalog grid and the top SearchBar. `ProductCard` renders the uploaded cover image when present.
+- **Catalog overhaul** (`components/shop/CatalogView.tsx`): filters for price (custom
+  `PriceRange` dual-handle slider — replaced the ugly native one), status (discounts/in-stock/
+  condition), category tree (real GET), brand (search + checkboxes), colour swatches,
+  size/volume; **sort dropdown moved to the RIGHT above the grid**; pagination (12/page).
+- **i18n** (`lib/i18n/dict.ts` + `hooks/useT` + `components/app/LanguageSwitcher` in the topbar):
+  **5 languages en/ru/tg/kk/uz** with flags, Redux `locale` + localStorage + `<html lang>`,
+  hydrated on boot in StoreSync. Nav, topbar, profile menu, promo, settings strings translated.
+- **Settings page is full** (`components/settings/SettingsView`, per ТЗ blocks): Account &
+  security (phone + linked social badges + edit-profile link), Appearance (tactile dark/light
+  Switch w/ moon/sun), Localization (5 langs + 7 currencies), Notifications (master + per-type
+  toggles + Telegram/Instagram/WhatsApp delivery-alert channels, persisted to `oasis-notif-prefs`),
+  Plan & subscription (current plan + Upgrade/Manage → /billing). Reusable `Switch` component.
+- **Currency** (`lib/config.ts` `CURRENCY_META` + `hooks/useMoney`): TJS/USD/RUB/UZS/KZT/EUR/GBP
+  with REAL symbols ($, ₽, сўм, ₸, €, £, смн) + conversion. `formatPrice` is TJS-base→currency.
+  All prices + the catalog price slider follow the chosen currency. Set in the new **Settings
+  page** (`components/settings/SettingsView`: theme + language + currency), persisted & hydrated.
+- **AI chat history fix:** assistant is backed by the shared `oasis-ai-chats` store; the helper
+  lists them; clicking a history item → `/ai?chat=<id>` and the page `key` remounts the
+  assistant so the SAVED chat actually loads (was opening empty).
+- **AI image quota:** free Gemini tier blocks image gen (429) → `lib/poster.ts` `makePoster`
+  renders an on-brand stylized canvas cover so "generate image" always returns something.
+
+## ✅ DONE — Phase 4: product/[id] FULL page (build OK: 34 routes)
+- **DB:** migration `0007_product_reviews.sql` → `product_reviews` (product_id is **text**
+  so BOTH demo seeds "p1"/"w2" and live uuid listings share one table) + `product_review_likes`
+  (helpfulness). RLS public-read / author-write. `verified_buyer` col defaults false (flips
+  once orders land). **Applied via `node supabase/apply.mjs migrations/0007_product_reviews.sql`.**
+- **Data layer:** `lib/data/product-reviews.ts` (fetch/upsert/delete/like). `lib/data/products.ts`
+  gained `fetchProductDetail` (live uuid → full row: all images, html description, seller_id,
+  category) + `fetchSellerMini`. New type `ProductReview`.
+- **Page** `app/(shop)/product/[id]/page.tsx` = requireUser + DashboardShell + `<ProductDetail key={id}>`
+  (the `key` remounts on navigation so clicking a recommendation reloads with that product's data).
+- **`components/shop/ProductDetail.tsx`** (client orchestrator): resolves demo seed synchronously,
+  live listings via fetch (no set-state-in-effect — derived state + `key` remount). Breadcrumb,
+  title/brand, animated rating→#reviews anchor, live in-stock pulse, discount badge (rainbow tiers),
+  **dynamic price** (perfume **volume selector** 2/5/10/100ml changes price live; watch/glasses
+  **colour swatches** w/ real hexes). Qty stepper (stock-clamped), **Add to cart** (variant-aware,
+  uses cart `addRaw`), **Buy now** (→ /cart), **Message seller** (→ /messages/[sellerId]), favourite.
+  Trust strip, seller card (live → /profile/[id], demo → "OASIS LUX official"), description
+  (sanitised seller HTML), 3 **accordions** (specs / ingredients-materials / TJ shipping table).
+- **`ProductGallery.tsx`**: big stage + thumbnails (layoutId active indicator). Real photos when
+  present, else fabricated neon-art "angles" (hue-rotated). **3D View** toggle = pointer drag-to-rotate
+  (rotateX/Y w/ perspective) + reset. Discount flag overlay.
+- **`ProductReviews.tsx`**: real backend reviews — star input, **photo upload** (reuses `uploadMedia`,
+  max 4), rating distribution bars, **Helpful** like toggle, verified-buyer badge, edit/delete own.
+- **Recommendations** swiper at the bottom (same-type first, then top-rated) + "View all" → catalog.
+- ⚠️ Still open from this block (separate phase): **Order/checkout with card** + the post-order
+  **tracking page** (3D TJ map, seller Telegram/IG ping, 15-min cancel window). Order CTA currently
+  routes Buy-now → /cart (checkout flow not built yet).
+
+## ✅ DONE — Phase 5: Cart + Favorites pages (build OK: 31 routes)
+- **Cart** `app/(shop)/cart/page.tsx` → `components/shop/CartView` (was a stub). Left line-item list
+  (image or `ProductArt` fallback via `useLiveProducts` lookup, title, `Variant: …`, unit price,
+  **bounce quantity stepper**, line total) + **sticky Summary** (subtotal, "Shipping (Dushanbe
+  Logistics) · Calculated at checkout", promo discount row, animated Total). **Promo field** wired to
+  the shared `promo` redux slice + `oasis-promo` localStorage (same codes as sidebar `PromoStatus`,
+  loading spinner). Glowing **Proceed to Checkout** → toast (checkout not built yet). **Trash → micro-modal
+  confirm**. **Empty state** + recommendation Swiper.
+  - Stock rule honoured ([[stock-decrement-rule]]): stepper `+` disabled once total cart qty for that
+    productId hits `product.stock` (shared across variants); never writes DB stock.
+- **Favorites** `app/(shop)/favorites/page.tsx` → `components/shop/FavoritesView` (was a stub). Header
+  "My Wishlist" + count chip + bulk **Clear wishlist** / **Add all to cart** (skips out-of-stock /
+  cart-maxed). Grid reuses shared `ProductCard` (status tags + discount badge + heart already built),
+  `AnimatePresence layout` blur-out on removal. Empty state.
+- **Infra:** added `clearFavorites` reducer + `clearFavoriteRows` persistence + `useFavorites().clearAll`.
+- **Cart/Wishlist v2 (popular-store features):** cart — **save for later** (→ wishlist), **free-delivery
+  progress bar** (≥500 смн), **"You save"** line (item discounts + promo), **out-of-stock** lines
+  (greyed, unselectable, excluded from total/checkout), recommendations row, line vs unit count fixed.
+  Wishlist — **sort** (recent/price/rating) + **filter chips** (All/In stock/On sale) with counts.
+
+## ✅ DONE — Phase 6: Checkout + Orders + live tracking (build OK: 36 routes)
+- **DB:** `0008_orders.sql` → `orders` + `order_items` (RLS: buyer & seller read, buyer writes/cancels).
+  Order carries courier, distance/eta, origin/destination latlng, paid_at, **cancel_deadline**,
+  **stock_settled**. **Applied via `node supabase/apply.mjs migrations/0008_orders.sql`.**
+- **`lib/data/orders.ts`:** types + `fetchOrder`/`fetchMyOrders`/`cancelOrder` + pure helpers
+  (REGION_META fees/distance per TJ city, `makeCourier`, `regionLogistics`, `canCancel`, `CANCEL_WINDOW_MIN=15`).
+- **`POST /api/orders`** (server, cookies auth): recomputes money server-side (never trusts client),
+  generates courier/ETA/destination, inserts order+items, **pings seller** (notification row via admin +
+  best-effort Telegram DM if `telegram_chat_id`). **`POST /api/orders/settle`** (admin): lazy 15-min
+  stock settlement — see [[stock-decrement-rule]].
+- **Checkout** `/checkout` (`components/checkout/CheckoutView`): delivery form (name, +992 mask, region,
+  address) + **3D payment card** (Alif green / Dushanbe City red-blue toggle, live number/name/expiry,
+  **flips on CVV focus**), order summary (reads the cart's saved selection via `CHECKOUT_SELECTION_KEY`
+  sessionStorage), "Pay" → authorizing spinner → creates order → removes paid lines from cart → /order/[id]/track.
+  Cart's "Proceed to Checkout" now saves the selection + routes here (no more dead toast).
+- **Tracking** `/order/[id]/track` (`components/order/OrderTracking`): confetti banner, **3D-tilted TJ map**
+  with cities + animated courier marker moving hub→region, **live km + ETA countdown**, status pipeline
+  (placed→…→fulfilled), courier card (call link), itemised totals, **15-min cancel window** w/ live mm:ss
+  countdown → cancel (then locked). Calls settle on load.
+- **Orders history** `/orders` (`components/order/OrdersView`): list of all orders w/ status badge, units,
+  region, relative date, total → links to tracking.
+- ⚠️ Future polish: multi-seller order splitting (one seller_id per order today); cheque upload +
+  courier/buyer moderation on the tracking page.
+
+## ✅ DONE — Phase 6.1: real map, transactions, polish (build OK: 37 routes)
+- **Real interactive map** (`components/order/RouteMap.tsx`, maplibre-gl): free OSM raster tiles (no key),
+  **drag · rotate · tilt (pitch 55) · zoom**, NavigationControl, dark "cyber" canvas filter (globals.css
+  `.route-map`), neon GeoJSON route line + 🏬/📍 markers + animated 🚚 courier marker. Replaced the flat SVG.
+  Coordinates are real (`REGION_META` city coords); distance/ETA now computed by **haversine** (`lib/data/orders`
+  `haversineKm`/`lerpLatLng`/`regionLogistics`) — remaining km = great-circle from the courier's interpolated
+  point to the destination (honest; only the courier's position is time-simulated, no GPS feed).
+- **Tracking page:** added "Order placed" confirmation actions — **Back to home** + All orders buttons in the banner.
+- **Transactions page** `/transactions` (`components/order/TransactionsView` + sidebar `Receipt` nav, i18n
+  nav.transactions ×5 langs): KPI cards (total **spent** / **earned** / **net** / count), 6-month spent-vs-earned
+  bar chart, filter tabs (All/Purchases/Sales), combined feed (purchase − / sale +, cancelled struck-through) →
+  links to tracking. Uses `fetchMyOrders` + new `fetchSellerOrders`.
+- **Seller ping** enriched: in-app notification lists items + linked channels; **Telegram** DM real (needs
+  connected chat id). NOTE: Instagram/TikTok/WhatsApp DMs need their paid/business APIs + opt-in — can't be
+  truly sent for free, so in-app + Telegram are the live channels (not faked).
 - **Catalog page is a stub** — needs the 100+ filters UI + reads `?q=`/category filters that
   SearchBar & Oasis Helper already link to.
 - **Categories/subcategories/tags** (electronics, phones, furniture, swords, cosplay…):
@@ -200,6 +307,96 @@
   promo redux slice shared by cart + sidebar.
 - **Admin panel CRUD** (brands/categories add-delete-edit, ban/unban users, see all
   signups) + **admin Oasis Helper variant** (smarter, reads logs, builds promos via NL).
+
+## ✅ DONE — Phase 7: Messaging (buyer ↔ seller chat, realtime)
+- **Home `LiveTracker`** rewritten: shows your active order on the real `RouteMap` (live km/ETA,
+  courier, "open full tracking") or an empty state (was a stale stub — that's the "fake map" the owner saw).
+- **DB** `0009_messaging.sql` (applied): `conversations` (canonical `user_a<user_b` pair, unique,
+  `last_message/last_sender/last_at`) + `messages` (sender/recipient, text, `attachments[]`, `read`).
+  Trigger `bump_conversation` refreshes preview; RLS = participants only; **both tables in `supabase_realtime`**.
+- **Data** `lib/data/messages.ts`: `fetchConversations` (inbox + unread, embeds both profiles via
+  `!conversations_user_a_fkey`), race-safe `getOrCreateConversation`, `fetchMessages`, `sendMessage`,
+  `markRead`, `fetchPeerMini`.
+- **`/messages`** (inbox) + **`/messages/[id]`** (chat) → `components/messages/MessagesView` master-detail
+  (searchable thread list + active pane / splash, responsive; auto-refetch on realtime changes).
+  `[id]` = the OTHER user's id (matches product "Message seller" → `/messages/{sellerId}`).
+- **`ChatPane`**: realtime `chat:{convId}` (live messages dedup by id + **presence online dot**),
+  read receipts (✓/✓✓ + auto-markRead), image attachments (`uploadMedia`), emoji picker, quick-reply
+  chips, Enter-to-send, self-chat + unknown-peer guards.
+
+## ✅ DONE — Phase 7.1: rich chat (voice · stickers · GIFs · audio/video calls)
+- **Voice messages:** MediaRecorder → upload to `media` bucket → sent as an audio attachment,
+  rendered with an inline `<audio controls>`. Record bar with timer + cancel/send.
+- **Stickers:** big-emoji panel; emoji-only messages render large (no bubble) via `isEmojiOnly`.
+- **GIFs:** `/api/gifs` proxies Giphy (`GIPHY_API_KEY` or public beta key) — trending + search;
+  picker sends the gif url as an attachment (`.gif` → animated `<img>`).
+- **Audio + video calls:** `hooks/useCall.ts` = WebRTC (public STUN, no TURN) with **signaling over
+  the same Supabase realtime channel** (`broadcast` event `call`: offer/answer/ice/end). ICE buffered
+  until remote desc set; `sessionId` re-keys the overlay per call. `components/messages/CallOverlay.tsx`
+  = incoming ring (accept/decline), in-call screen (remote video / avatar for audio, local PiP),
+  mute, camera toggle, hangup, duration timer. Call buttons added to the chat header.
+- Product "Message seller": demo listings (no seller) now toast + open inbox instead of silently.
+
+## ✅ DONE — Phase 8: Promo codes page + rich promo model
+- **Promo model rebuilt** (`lib/promo-codes.ts`): `PromoDef` supports **percent / fixed сомонӣ /
+  cashback**, scope (all/category/product) + `scopeLabel`, `minOrder`, `expiresAt`, `locked`+
+  `lockProgress`/`lockHint`. Helpers `findPromo`, `toApplied`, `promoDiscount` (percent→%, fixed→
+  сомонӣ off, cashback→0 upfront), `promoCashback`, `promoShort(money)` (currency-aware label).
+- **Redux promo slice** now stores the full applied promo `{code,type,value,scope,scopeLabel}`
+  (was `{code,discountPercent}`). Updated every consumer: `StoreSync` (restore), `PromoStatus`
+  (sidebar, currency-aware label + locked guard), `CartView` (discount via `promoDiscount` +
+  cashback line + "Valid on" scope), `CheckoutView`, **`/api/orders`** (server recompute via
+  `findPromo`+`promoDiscount`, handles fixed). Fixed amounts are TJS-base → `useMoney` converts
+  (50 смн shows as ~₽/$/etc per chosen currency).
+- **`/promo` page** (`components/promo/PromoView`): loyalty-tier progress banner, Available/Locked
+  tabs, **ticket-shaped coupon cards** (cut-out circles, big value, type chip, scope + min-order
+  badges, expiry countdown, rainbow stub for ≥50% off), **Copy** (canvas-confetti + "Copied!"),
+  **Apply/Remove** (sets the shared active promo → reflected in cart/sidebar), locked cards show a
+  progress bar + unlock hint. Active promo banner at top.
+- **Targeted promos (real, not "from thin air"):** each `PromoDef` has an `id` + scope by
+  **brand / category / product** (`brands`/`categories`/`productIds`). `promoMatchesProduct` +
+  `promoPercentForProduct`. When a percent promo is active, **matching products show the reduced
+  price + badge across ProductCard (catalog, home, everywhere)** — e.g. TOMFORD20 makes every Tom
+  Ford card show −20%. Cart/Checkout discount applies **only to matching selected lines**
+  (`applicableSubtotal`), shows "No selected items match CODE" when none qualify. **Server
+  `/api/orders` re-verifies scope** against real `products` rows (brand/type/category/tags) so a
+  scoped discount can't be claimed on non-matching items. Demo brand promos: TOMFORD20, CREED15;
+  category: WATCH15 (watches), SCENT25 (perfumes). Add-to-cart still stores list price (promo is a
+  summary-level discount → no double counting).
+- **Timed activation (per user):** each promo has `windowHours` (24h flash or 7d). `toApplied` stamps
+  `activatedAt`+`expiresAt` (clamped to global cutoff); `AppliedPromo` + promo slice carry them.
+  `PromoStatus` (always-mounted sidebar) ticks every 1s, shows a live **countdown**, and
+  **auto-deactivates** when the window passes (toast). `StoreSync` drops an expired promo on load.
+  Promo page shows "Xh/Xd after use" per card + "expires in …" on the active one.
+- **One-promo-per-period lock:** activating commits the user to that code until its window ends.
+  Promo slice gained `lockedCode`/`lockedUntil` (separate localStorage `oasis-promo-lock`).
+  Shared `hooks/usePromo.ts` (`apply`/`deactivate`) enforces it everywhere (sidebar, cart input,
+  promo-page input/cards): while locked, **other coupons grey out + disable**, the input rejects a
+  different code, **deactivating keeps the lock** (discount stops but can't switch). Re-activating the
+  same locked code reuses the original window (no extension). `PromoStatus` timer releases the lock
+  (`clearPromoLock`) + active promo when the period passes. `StoreSync` restores a non-expired lock.
+- **Manual code entry on the promo page** (`Have a code?` input) for codes not listed — plus
+  `hidden` promos (INSTA25, TELEGRAM50) that never render as cards but activate when typed
+  (the "shared on socials" case). All entry points share `usePromo.apply` (same lock + currency rules).
+
+## ✅ DONE — Phase 9: YouTube-style endless home feed
+- `components/home/InfiniteFeed.tsx`: filter chips (For you / categories / popular / deals / under-100)
+  + an **infinite-scroll grid** (IntersectionObserver sentinel, BATCH 12, cap 144) that cycles a
+  deterministic reshuffle of `useLiveProducts` so the page feels endless now (few/demo products) and
+  naturally lengthens as real listings are published. `whileInView` reveal per card, "all caught up"
+  footer at the cap. Mounted at the bottom of `HomeDashboard` (after the swiper rows).
+
+## 🟡 IN PROGRESS — Phase 10: full client i18n (5 languages)
+- Goal: translate the ENTIRE client (not admin) into en/ru/tg/kk/uz — every page, modal, input.
+- Approach: expand `lib/i18n/dict.ts` (key → 5 langs) + wire `useT` page-by-page (keeps build green).
+- **DONE so far:** shared chrome (nav/topbar/profile menu/promo status) + Settings (earlier) +
+  **Cart** (`CartView`), **Favorites** (`FavoritesView`), **Promo page** (`PromoView`) — fully wired,
+  incl. modals, inputs, toasts, summary, coupon cards (UI chrome). Added `common.*`, `cart.*`,
+  `fav.*`, `promoPg.*` namespaces in all 5 languages.
+- **REMAINING (next batches):** Home (greeting/stat tiles/browse/rows/infinite feed/live tracker),
+  Product detail + reviews, Checkout, Orders/Tracking/Transactions, Messages/Chat, AI assistant +
+  Oasis helper, Profile/Edit/Sell, Billing, Auth (login/register), Landing. Promo *content* strings
+  (taglines, scopeLabels) + `promoWindowLabel` units still English (marketing copy — content pass).
 
 ## 🔜 EARLIER deferred (told the owner)
 - **Admin brands/categories/subcategories CRUD** — needs a real migration (`brands`,

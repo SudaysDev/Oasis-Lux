@@ -12,11 +12,14 @@ export const LOCALES: { code: Locale; label: string; flag: string }[] = [
   { code: "en", label: "English", flag: "🇬🇧" },
   { code: "ru", label: "Русский", flag: "🇷🇺" },
   { code: "tg", label: "Тоҷикӣ", flag: "🇹🇯" },
+  { code: "kk", label: "Қазақша", flag: "🇰🇿" },
+  { code: "uz", label: "Oʻzbekcha", flag: "🇺🇿" },
 ];
 export const DEFAULT_LOCALE: Locale = "ru";
 
 export const CURRENCIES: Currency[] = ["TJS", "USD", "RUB", "UZS", "KZT", "EUR", "GBP"];
 export const DEFAULT_CURRENCY: Currency = "TJS";
+export const CURRENCY_STORAGE_KEY = "oasis-currency";
 
 /** Display symbol + conversion rate from the TJS base (1 TJS → rate × currency). */
 export const CURRENCY_META: Record<Currency, { symbol: string; rate: number; prefix: boolean; label: string; flag: string }> = {

@@ -4,18 +4,21 @@ import { Coins, Heart, ShoppingBag, Wallet } from "lucide-react";
 import type { ComponentType } from "react";
 import { useCart } from "@/hooks/useCart";
 import { useFavorites } from "@/hooks/useFavorites";
-import { formatPrice } from "@/lib/utils";
+import { useMoney } from "@/hooks/useMoney";
+import { useT } from "@/hooks/useT";
 import type { Profile } from "@/types";
 
 export function StatTiles({ profile }: { profile: Profile }) {
   const { count: cartCount } = useCart();
   const { count: favCount } = useFavorites();
+  const { money } = useMoney();
+  const { t } = useT();
 
   const tiles: { label: string; value: string; icon: ComponentType<{ className?: string }> }[] = [
-    { label: "Loyalty points", value: String(profile.loyaltyPoints), icon: Coins },
-    { label: "Cashback", value: formatPrice(profile.cashbackBalance), icon: Wallet },
-    { label: "In cart", value: String(cartCount), icon: ShoppingBag },
-    { label: "Favorites", value: String(favCount), icon: Heart },
+    { label: t("home.points"), value: String(profile.loyaltyPoints), icon: Coins },
+    { label: t("home.cashback"), value: money(profile.cashbackBalance), icon: Wallet },
+    { label: t("home.inCart"), value: String(cartCount), icon: ShoppingBag },
+    { label: t("home.favorites"), value: String(favCount), icon: Heart },
   ];
 
   return (

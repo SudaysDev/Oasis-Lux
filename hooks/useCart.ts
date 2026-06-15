@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { addToCart, removeFromCart, setQuantity } from "@/store";
+import { addToCart, clearCart, removeFromCart, setQuantity } from "@/store";
 import { getBrowserClient } from "@/lib/supabase/client";
-import { deleteCartLine, upsertCartLine } from "@/lib/supabase/persistence";
+import { clearCartRows, deleteCartLine, upsertCartLine } from "@/lib/supabase/persistence";
 import { useAuth } from "./useAuth";
 import type { CartItem } from "@/types";
 
@@ -59,5 +59,10 @@ export function useCart() {
     }
   };
 
-  return { items, count, add, addRaw, remove, changeQty, isAuthed };
+  const clear = () => {
+    dispatch(clearCart());
+    if (userId) void clearCartRows(getBrowserClient(), userId).catch(() => {});
+  };
+
+  return { items, count, add, addRaw, remove, changeQty, clear, isAuthed };
 }

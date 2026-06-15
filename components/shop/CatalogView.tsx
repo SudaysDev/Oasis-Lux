@@ -9,7 +9,8 @@ import { useLiveProducts } from "@/hooks/useLiveProducts";
 import { ProductCard, ProductCardSkeleton } from "@/components/shop/ProductCard";
 import { PriceRange } from "@/components/shop/PriceRange";
 import { SELL_COLORS } from "@/lib/sell-data";
-import { formatPrice, cn } from "@/lib/utils";
+import { useMoney } from "@/hooks/useMoney";
+import { cn } from "@/lib/utils";
 import type { DemoProduct } from "@/lib/landing-data";
 
 type Sort = "newest" | "oldest" | "price_asc" | "price_desc" | "popular" | "rating";
@@ -45,6 +46,7 @@ function Section({ title, children, action }: { title: string; children: React.R
 
 export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: string; initialCat?: string | null }) {
   const { products, loading } = useLiveProducts();
+  const { money } = useMoney();
   const [cats, setCats] = useState<Category[]>([]);
   const [q, setQ] = useState(initialQ);
   const [brandQ, setBrandQ] = useState("");
@@ -129,7 +131,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
           </div>
 
           {/* PRICE */}
-          <Section title={`Price · ${formatPrice(price[0])} – ${formatPrice(price[1])}`}>
+          <Section title={`Price · ${money(price[0])} – ${money(price[1])}`}>
             <PriceRange min={0} max={PRICE_MAX} value={price} onChange={(v) => onFilter(() => setPrice(v))} />
           </Section>
 

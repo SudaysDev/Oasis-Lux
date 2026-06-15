@@ -7,10 +7,13 @@ import { FeaturedCarousel } from "./FeaturedCarousel";
 import { LiveTracker } from "./LiveTracker";
 import { BrowseSection } from "./BrowseSection";
 import { ProductRow } from "./ProductRow";
+import { InfiniteFeed } from "./InfiniteFeed";
 import { useLiveProducts } from "@/hooks/useLiveProducts";
+import { useT } from "@/hooks/useT";
 import type { Profile } from "@/types";
 
 export function HomeDashboard({ profile }: { profile: Profile }) {
+  const { t } = useT();
   const { products, live } = useLiveProducts();
   // a user's freshly published items lead the trending/recent rows
   const trending = [...live, ...products.filter((p) => !p.isLive && p.rating >= 4.7)].slice(0, 8);
@@ -24,9 +27,10 @@ export function HomeDashboard({ profile }: { profile: Profile }) {
       <FeaturedCarousel />
       <LiveTracker />
       <BrowseSection />
-      <ProductRow id="trending" title="Trending now" products={trending} showVariants />
-      <ProductRow id="drops" title="Exclusive drops" products={drops} showVariants />
-      <ProductRow id="recent" title="Recently viewed" products={recent} />
+      <ProductRow id="trending" title={t("home.trending")} products={trending} showVariants />
+      <ProductRow id="drops" title={t("home.drops")} products={drops} showVariants />
+      <ProductRow id="recent" title={t("home.recent")} products={recent} />
+      <InfiniteFeed />
     </DashboardShell>
   );
 }

@@ -90,3 +90,7 @@ export async function addFavoriteRow(sb: SupabaseClient, userId: string, product
 export async function removeFavoriteRow(sb: SupabaseClient, userId: string, productId: string): Promise<void> {
   await sb.from("favorites").delete().eq("user_id", userId).eq("product_id", productId);
 }
+
+export async function clearFavoriteRows(sb: SupabaseClient, userId: string): Promise<void> {
+  await sb.from("favorites").delete().eq("user_id", userId);
+}

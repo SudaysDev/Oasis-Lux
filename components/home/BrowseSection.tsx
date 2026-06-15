@@ -4,19 +4,20 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BadgePercent, Flame, Glasses, LayoutGrid, SprayCan, Wallet, Watch, type LucideIcon } from "lucide-react";
 import { ProductCard } from "@/components/shop/ProductCard";
+import { useT } from "@/hooks/useT";
 import { DEMO_PRODUCTS, type DemoProduct } from "@/lib/landing-data";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "perfume" | "watch" | "glasses" | "popular" | "deals" | "cheap";
 
-const FILTERS: { key: FilterKey; label: string; icon: LucideIcon }[] = [
-  { key: "all", label: "All", icon: LayoutGrid },
-  { key: "perfume", label: "Perfumes", icon: SprayCan },
-  { key: "watch", label: "Watches", icon: Watch },
-  { key: "glasses", label: "Glasses", icon: Glasses },
-  { key: "popular", label: "Popular", icon: Flame },
-  { key: "deals", label: "Deals", icon: BadgePercent },
-  { key: "cheap", label: "Under 100", icon: Wallet },
+const FILTERS: { key: FilterKey; tkey: string; icon: LucideIcon }[] = [
+  { key: "all", tkey: "filter.all", icon: LayoutGrid },
+  { key: "perfume", tkey: "filter.perfumes", icon: SprayCan },
+  { key: "watch", tkey: "filter.watches", icon: Watch },
+  { key: "glasses", tkey: "filter.glasses", icon: Glasses },
+  { key: "popular", tkey: "filter.popular", icon: Flame },
+  { key: "deals", tkey: "filter.deals", icon: BadgePercent },
+  { key: "cheap", tkey: "filter.cheap", icon: Wallet },
 ];
 
 function matches(p: DemoProduct, f: FilterKey): boolean {
@@ -36,12 +37,13 @@ function matches(p: DemoProduct, f: FilterKey): boolean {
 
 export function BrowseSection() {
   const [filter, setFilter] = useState<FilterKey>("all");
+  const { t } = useT();
   const list = DEMO_PRODUCTS.filter((p) => matches(p, filter));
 
   return (
     <section className="mt-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold sm:text-xl">Browse the grid</h2>
+        <h2 className="text-lg font-bold sm:text-xl">{t("home.browseGrid")}</h2>
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => {
             const Icon = f.icon;
@@ -56,7 +58,7 @@ export function BrowseSection() {
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
-                {f.label}
+                {t(f.tkey)}
               </button>
             );
           })}
@@ -81,7 +83,7 @@ export function BrowseSection() {
       </motion.div>
 
       {list.length === 0 && (
-        <p className="py-10 text-center text-sm text-fg-muted">Nothing here yet — try another filter.</p>
+        <p className="py-10 text-center text-sm text-fg-muted">{t("home.nothingFilter")}</p>
       )}
     </section>
   );

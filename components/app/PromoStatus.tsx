@@ -1,39 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Ticket, X } from "lucide-react";
+import { Check, Clock, Ticket, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { setPromo, clearPromo } from "@/store";
-import { PROMO_CODES, PROMO_STORAGE_KEY } from "@/lib/promo-codes";
+import { useAppDispatch } from "@/store/hooks";
+import { clearPromo, clearPromoLock } from "@/store";
+import { promoShort, PROMO_STORAGE_KEY, PROMO_LOCK_KEY } from "@/lib/promo-codes";
+import { usePromo } from "@/hooks/usePromo";
+import { useMoney } from "@/hooks/useMoney";
 import { useT } from "@/hooks/useT";
 import { cn } from "@/lib/utils";
+
+/** Humanise a remaining duration: "2d 3h" / "5h 12m" / "08:30". */
+function fmtRemaining(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
 
 /** Left-sidebar promo indicator: shows whether a promo code is active, and lets you apply one. */
 export function PromoStatus({ open }: { open: boolean }) {
   const dispatch = useAppDispatch();
   const { t } = useT();
-  const { code, discountPercent } = useAppSelector((s) => s.promo);
+  const { money } = useMoney();
+  const { promo, apply: applyCode, deactivate } = usePromo();
+  const code = promo.code;
   const [input, setInput] = useState("");
   const [editing, setEditing] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // the lock window is the binding period (active promo, if any, ends with it)
+  const lockMs = promo.lockedUntil ? new Date(promo.lockedUntil).getTime() : 0;
+  const remainingMs = lockMs ? Math.max(0, lockMs - now) : 0;
+
+  // tick while a promo / lock is live
+  useEffect(() => {
+    if (!code && !lockMs) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [code, lockMs]);
+
+  // when the period passes, drop the active promo AND release the lock
+  useEffect(() => {
+    if (lockMs && now >= lockMs) {
+      dispatch(clearPromo());
+      dispatch(clearPromoLock());
+      try { localStorage.removeItem(PROMO_STORAGE_KEY); localStorage.removeItem(PROMO_LOCK_KEY); } catch {}
+      toast("Промо-период завершён — можно выбрать новый", { icon: "⌛" });
+    }
+  }, [now, lockMs, dispatch]);
 
   const apply = () => {
-    const c = input.trim().toUpperCase();
-    if (!c) return;
-    const pct = PROMO_CODES[c];
-    if (pct === undefined) return toast.error("Промокод не найден");
-    dispatch(setPromo({ code: c, discountPercent: pct }));
-    try { localStorage.setItem(PROMO_STORAGE_KEY, JSON.stringify({ code: c, discountPercent: pct })); } catch {}
-    toast.success(`Промокод ${c} активирован · −${pct}%`);
-    setInput("");
-    setEditing(false);
+    if (applyCode(input)) {
+      setInput("");
+      setEditing(false);
+    }
   };
 
-  const remove = () => {
-    dispatch(clearPromo());
-    try { localStorage.removeItem(PROMO_STORAGE_KEY); } catch {}
-  };
+  const remove = () => deactivate();
 
   if (!open) {
     return (
@@ -53,7 +82,12 @@ export function PromoStatus({ open }: { open: boolean }) {
             <p className="flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider text-success">
               <Check className="h-3 w-3" /> {t("promo.active")}
             </p>
-            <p className="truncate text-sm font-bold text-success">{code} <span className="font-mono text-[11px]">−{discountPercent}%</span></p>
+            <p className="truncate text-sm font-bold text-success">{code} <span className="font-mono text-[11px]">{promoShort(promo, money)}</span></p>
+            {lockMs > 0 && (
+              <p className="flex items-center gap-1 font-mono text-[10px] text-fg-muted">
+                <Clock className="h-2.5 w-2.5" /> {fmtRemaining(remainingMs)} left
+              </p>
+            )}
           </div>
           <button onClick={remove} aria-label={t("promo.clear")} className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-fg-muted transition hover:text-danger">
             <X className="h-3.5 w-3.5" />
@@ -64,6 +98,11 @@ export function PromoStatus({ open }: { open: boolean }) {
           <p className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider text-fg-muted">
             <Ticket className="h-3 w-3" /> {t("promo.inactive")}
           </p>
+          {promo.lockedCode && lockMs > 0 && (
+            <p className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-amber-400">
+              <Clock className="h-2.5 w-2.5" /> Locked to {promo.lockedCode} · {fmtRemaining(remainingMs)} left
+            </p>
+          )}
           <AnimatePresence initial={false}>
             {editing ? (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-1.5 flex gap-1.5">

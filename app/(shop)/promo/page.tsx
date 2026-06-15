@@ -1,7 +1,15 @@
-export default function Page() {
+import type { Metadata } from "next";
+import { requireUser } from "@/lib/auth/session";
+import { DashboardShell } from "@/components/app/DashboardShell";
+import { PromoView } from "@/components/promo/PromoView";
+
+export const metadata: Metadata = { title: "Promo Codes" };
+
+export default async function PromoPage() {
+  const profile = await requireUser();
   return (
-    <main className="grid min-h-[60vh] place-items-center p-10">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-cyan-300/70">Promo Codes · coming soon</p>
-    </main>
+    <DashboardShell profile={profile}>
+      <PromoView profile={profile} />
+    </DashboardShell>
   );
 }

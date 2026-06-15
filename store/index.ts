@@ -1,5 +1,6 @@
 import { configureStore, createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { CartItem, Currency, Locale, Profile, Theme } from "@/types";
+import type { CartItem, Currency, Locale, Profile, PromoScope, PromoType, Theme } from "@/types";
+import type { AppliedPromo } from "@/lib/promo-codes";
 import { DEFAULT_CURRENCY, DEFAULT_LOCALE } from "@/lib/config";
 
 // ---- theme ----------------------------------------------------------------
@@ -55,20 +56,54 @@ const favoritesSlice = createSlice({
     toggleFavorite: (s, a: PayloadAction<string>) => {
       s.ids = s.ids.includes(a.payload) ? s.ids.filter((x) => x !== a.payload) : [...s.ids, a.payload];
     },
+    clearFavorites: (s) => { s.ids = []; },
     hydrateFavorites: (s, a: PayloadAction<string[]>) => { s.ids = a.payload; },
   },
 });
 
 // ---- promo (active promo code, mirrored to localStorage) ------------------
+interface PromoState {
+  code: string | null;
+  type: PromoType;
+  value: number;
+  scope: PromoScope;
+  scopeLabel: string | null;
+  activatedAt: string | null;
+  expiresAt: string | null;
+  // period lock: once a user commits to a promo they're tied to it (one per period);
+  // deactivating stops the discount but the lock persists until lockedUntil passes.
+  lockedCode: string | null;
+  lockedUntil: string | null;
+}
+const promoInitial: PromoState = {
+  code: null, type: "percent", value: 0, scope: "all", scopeLabel: null,
+  activatedAt: null, expiresAt: null, lockedCode: null, lockedUntil: null,
+};
+
 const promoSlice = createSlice({
   name: "promo",
-  initialState: { code: null as string | null, discountPercent: 0 },
+  initialState: promoInitial,
   reducers: {
-    setPromo: (s, a: PayloadAction<{ code: string; discountPercent: number }>) => {
+    setPromo: (s, a: PayloadAction<AppliedPromo>) => {
       s.code = a.payload.code;
-      s.discountPercent = a.payload.discountPercent;
+      s.type = a.payload.type;
+      s.value = a.payload.value;
+      s.scope = a.payload.scope;
+      s.scopeLabel = a.payload.scopeLabel;
+      s.activatedAt = a.payload.activatedAt;
+      s.expiresAt = a.payload.expiresAt;
+      // first commit in a period sets the lock (kept until the window passes)
+      if (!s.lockedUntil) { s.lockedCode = a.payload.code; s.lockedUntil = a.payload.expiresAt; }
     },
-    clearPromo: (s) => { s.code = null; s.discountPercent = 0; },
+    /** Set/restore the lock directly (used on hydrate). */
+    setPromoLock: (s, a: PayloadAction<{ lockedCode: string; lockedUntil: string }>) => {
+      s.lockedCode = a.payload.lockedCode;
+      s.lockedUntil = a.payload.lockedUntil;
+    },
+    /** Deactivate the active promo — discount stops, but the period lock stays. */
+    clearPromo: (s) => { s.code = null; s.type = "percent"; s.value = 0; s.scope = "all"; s.scopeLabel = null; s.activatedAt = null; s.expiresAt = null; },
+    /** Release the period lock (window passed) — frees the user to pick another. */
+    clearPromoLock: (s) => { s.lockedCode = null; s.lockedUntil = null; },
   },
 });
 
@@ -98,8 +133,8 @@ const authSlice = createSlice({
 export const { setTheme, toggleTheme } = themeSlice.actions;
 export const { setLocale, setCurrency } = localeSlice.actions;
 export const { addToCart, removeFromCart, setQuantity, clearCart, hydrateCart } = cartSlice.actions;
-export const { toggleFavorite, hydrateFavorites } = favoritesSlice.actions;
-export const { setPromo, clearPromo } = promoSlice.actions;
+export const { toggleFavorite, clearFavorites, hydrateFavorites } = favoritesSlice.actions;
+export const { setPromo, setPromoLock, clearPromo, clearPromoLock } = promoSlice.actions;
 export const { toggleSidebar, setSidebarOpen, setCartOpen, setCommandOpen, setAiMiniOpen } = uiSlice.actions;
 export const { setProfile, setAuthLoading } = authSlice.actions;
 

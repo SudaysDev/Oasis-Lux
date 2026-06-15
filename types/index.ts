@@ -2,7 +2,7 @@
 // OASIS LUX — Domain types (shared across the whole app)
 // ============================================================================
 
-export type Locale = "en" | "ru" | "tg";
+export type Locale = "en" | "ru" | "tg" | "kk" | "uz";
 export type Theme = "dark" | "light";
 export type Currency = "TJS" | "USD" | "RUB" | "UZS" | "KZT" | "EUR" | "GBP";
 
@@ -180,6 +180,20 @@ export interface UserReview {
   replies: ReviewReply[];
 }
 
+/** A review *about a product* (Product-by-ID page). Keyed by free-form productId. */
+export interface ProductReview {
+  id: string;
+  productId: string;
+  author: MiniProfile;
+  rating: number;
+  body: string;
+  photos: string[];
+  verifiedBuyer: boolean;
+  createdAt: string;
+  likeCount: number;
+  likedByMe: boolean;
+}
+
 export interface ProfileStats {
   listings: number;
   reviewsCount: number;
@@ -255,7 +269,7 @@ export interface Order {
 // Promo codes
 // ---------------------------------------------------------------------------
 export type PromoType = "percent" | "fixed" | "cashback";
-export type PromoScope = "all" | "category" | "product";
+export type PromoScope = "all" | "brand" | "category" | "product";
 
 export interface PromoCode {
   id: string;

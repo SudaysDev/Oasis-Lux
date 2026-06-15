@@ -2,7 +2,9 @@
 // mapped to the DemoProduct card shape so they render anywhere demo cards do.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DemoProduct } from "@/lib/landing-data";
-import type { ProductType } from "@/types";
+import type { MiniProfile, Plan, ProductType } from "@/types";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface Row {
   id: string;
@@ -54,4 +56,84 @@ export async function fetchActiveProducts(sb: SupabaseClient, limit = 120): Prom
     .order("created_at", { ascending: false })
     .limit(limit);
   return ((data ?? []) as Row[]).map(mapRow);
+}
+
+// ---------------------------------------------------------------------------
+// Single product detail (Product-by-ID page)
+// ---------------------------------------------------------------------------
+
+/** A DemoProduct enriched with the fields the detail page needs (all photos,
+ *  full description HTML, seller, category). Live rows carry these; demo seeds
+ *  fall back to their card shape. */
+export interface ProductDetail extends DemoProduct {
+  images: string[];
+  descriptionHtml?: string;
+  sellerId?: string;
+  category?: string;
+}
+
+interface DetailRow extends Row {
+  seller_id: string;
+  category: string | null;
+}
+
+/** Fetch one live listing by id, or null when the id is not a DB uuid / not found. */
+export async function fetchProductDetail(sb: SupabaseClient, id: string): Promise<ProductDetail | null> {
+  if (!UUID_RE.test(id)) return null;
+  const { data } = await sb
+    .from("products")
+    .select(
+      "id,title,brand,type,price,stock,hue,rating,images,description,tags,color,size,condition,created_at,seller_id,category",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+  const r = data as DetailRow;
+  const base = mapRow(r);
+  return {
+    ...base,
+    images: r.images ?? [],
+    descriptionHtml: r.description ?? undefined,
+    sellerId: r.seller_id,
+    category: r.category ?? undefined,
+  };
+}
+
+interface MiniRow {
+  id: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  plan: Plan | null;
+  is_verified: boolean | null;
+}
+
+/** Map of live productId → seller_id (demo seed ids are skipped). */
+export async function fetchProductSellers(sb: SupabaseClient, ids: string[]): Promise<Record<string, string>> {
+  const live = ids.filter((id) => UUID_RE.test(id));
+  if (live.length === 0) return {};
+  const { data } = await sb.from("products").select("id,seller_id").in("id", live);
+  const out: Record<string, string> = {};
+  for (const r of (data ?? []) as { id: string; seller_id: string }[]) out[r.id] = r.seller_id;
+  return out;
+}
+
+/** Minimal seller identity for the "sold by" card. */
+export async function fetchSellerMini(sb: SupabaseClient, id: string): Promise<MiniProfile | null> {
+  if (!UUID_RE.test(id)) return null;
+  const { data } = await sb
+    .from("profiles")
+    .select("id, username, full_name, avatar_url, plan, is_verified")
+    .eq("id", id)
+    .maybeSingle();
+  if (!data) return null;
+  const r = data as MiniRow;
+  return {
+    id: r.id,
+    username: r.username,
+    fullName: r.full_name ?? "",
+    avatarUrl: r.avatar_url ?? undefined,
+    plan: r.plan ?? "free",
+    isVerified: r.is_verified ?? false,
+  };
 }

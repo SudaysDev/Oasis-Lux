@@ -321,6 +321,29 @@ html.light .popover {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+/* ----------------------------- maplibre route map ------------------------ */
+/* dark "cyber" treatment for the free OSM raster tiles (canvas only — the
+   neon route line & emoji markers are DOM overlays, so they stay colourful) */
+.route-map .maplibregl-canvas {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.92) saturate(0.85);
+}
+html.light .route-map .maplibregl-canvas {
+  filter: none;
+}
+.route-map .maplibregl-ctrl-group {
+  background: var(--bg-elev);
+  border: 1px solid var(--panel-border);
+}
+.route-map .maplibregl-ctrl-group button + button { border-top-color: var(--panel-border); }
+.route-courier { position: relative; display: inline-grid; place-items: center; font-size: 1.4rem; }
+.route-courier-ping {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: rgba(34, 211, 238, 0.35);
+  animation: oasis-ripple 2s ease-out infinite;
+}
+
 /* floating-label input: label lifts when the field has content or focus */
 .float-field { position: relative; }
 .float-field > label {

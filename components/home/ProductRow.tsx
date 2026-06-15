@@ -7,6 +7,7 @@ import { FreeMode, Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { ArrowRight } from "lucide-react";
 import { ProductCard, ProductCardSkeleton } from "@/components/shop/ProductCard";
+import { useT } from "@/hooks/useT";
 import type { DemoProduct } from "@/lib/landing-data";
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function ProductRow({ id, title, products, showVariants, href = "/catalog" }: Props) {
+  const { t } = useT();
   // Simulated fetch so skeleton loaders genuinely show on first paint.
   const { data, isLoading } = useQuery({
     queryKey: ["home-row", id],
@@ -34,7 +36,7 @@ export function ProductRow({ id, title, products, showVariants, href = "/catalog
           href={href}
           className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-accent transition hover:underline"
         >
-          View all <ArrowRight className="h-3.5 w-3.5" />
+          {t("common.viewAll")} <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 

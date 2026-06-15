@@ -1,7 +1,15 @@
-export default function Page() {
+import type { Metadata } from "next";
+import { requireUser } from "@/lib/auth/session";
+import { DashboardShell } from "@/components/app/DashboardShell";
+import { SettingsView } from "@/components/settings/SettingsView";
+
+export const metadata: Metadata = { title: "Settings" };
+
+export default async function SettingsPage() {
+  const viewer = await requireUser();
   return (
-    <main className="grid min-h-[60vh] place-items-center p-10">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-cyan-300/70">Settings · coming soon</p>
-    </main>
+    <DashboardShell profile={viewer}>
+      <SettingsView profile={viewer} />
+    </DashboardShell>
   );
 }

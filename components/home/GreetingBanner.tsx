@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Crown, Sparkles } from "lucide-react";
 import { Marquee } from "@/components/landing/Marquee";
+import { useT } from "@/hooks/useT";
 import type { Profile } from "@/types";
 
 const OFFERS = [
@@ -14,6 +15,7 @@ const OFFERS = [
 ];
 
 export function GreetingBanner({ profile }: { profile: Profile }) {
+  const { t } = useT();
   const name = profile.fullName?.trim() || `@${profile.username}`;
 
   return (
@@ -30,13 +32,13 @@ export function GreetingBanner({ profile }: { profile: Profile }) {
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="neon-text flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.3em] text-accent">
-            <Sparkles className="h-3.5 w-3.5" /> Welcome back
+            <Sparkles className="h-3.5 w-3.5" /> {t("home.welcome")}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{name}</h1>
           <p className="mt-1 font-mono text-xs text-fg-muted">{profile.phone}</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-accent">
-          <Crown className="h-3.5 w-3.5" /> {profile.loyaltyTier} member
+          <Crown className="h-3.5 w-3.5" /> {profile.loyaltyTier} {t("home.member")}
         </span>
       </div>
 
