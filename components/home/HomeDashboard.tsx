@@ -3,8 +3,12 @@
 import { DashboardShell } from "@/components/app/DashboardShell";
 import { GreetingBanner } from "./GreetingBanner";
 import { StatTiles } from "./StatTiles";
+import { FeaturedHero } from "./FeaturedHero";
 import { FeaturedCarousel } from "./FeaturedCarousel";
+import { TopSellers } from "./TopSellers";
+import { BentoShowcase } from "./BentoShowcase";
 import { LiveTracker } from "./LiveTracker";
+import { SimilarToCart } from "./SimilarToCart";
 import { BrowseSection } from "./BrowseSection";
 import { ProductRow } from "./ProductRow";
 import { InfiniteFeed } from "./InfiniteFeed";
@@ -24,12 +28,30 @@ export function HomeDashboard({ profile }: { profile: Profile }) {
     <DashboardShell profile={profile}>
       <GreetingBanner profile={profile} />
       <StatTiles profile={profile} />
-      <FeaturedCarousel />
-      <LiveTracker />
-      <BrowseSection />
+
+      {/* editorial magazine hero — big tile + two stacked tiles, copy over art */}
+      <FeaturedHero />
+
+      {/* obviously-swipeable rails */}
       <ProductRow id="trending" title={t("home.trending")} products={trending} showVariants />
+      <TopSellers />
+
+      {/* fade-carousel banner for exclusive drops (a different swiper style) */}
+      <FeaturedCarousel />
+
+      {/* instagram-style asymmetric mosaic */}
+      <BentoShowcase />
+
+      <LiveTracker />
+
+      {/* personalised recommendations from cart / favorites */}
+      <SimilarToCart />
+
       <ProductRow id="drops" title={t("home.drops")} products={drops} showVariants />
+      <BrowseSection />
       <ProductRow id="recent" title={t("home.recent")} products={recent} />
+
+      {/* endless feed keeps the page YouTube-long & alive */}
       <InfiniteFeed />
     </DashboardShell>
   );

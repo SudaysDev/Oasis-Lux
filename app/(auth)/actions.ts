@@ -5,50 +5,62 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   authConfig,
-  syntheticEmail,
   derivePassword,
-  isAdminPhone,
+  normalizeEmail,
+  isAdminEmail,
   generateOtp,
-  suggestUsername,
+  suggestUsernameFromEmail,
 } from "@/lib/auth/server";
-import { normalizeTjPhone } from "@/lib/utils";
+import { sendOtpEmail } from "@/lib/email/otp";
 import { SOCIAL_ORDER, type AuthFormState, type OtpResult } from "@/lib/auth/shared";
-import type { Socials } from "@/types";
+import type { Locale, Socials } from "@/types";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+const otpLocale = (l?: string): "en" | "ru" | "tg" =>
+  l === "en" || l === "ru" || l === "tg" ? l : "ru";
+
 // ---------------------------------------------------------------------------
-// Request an OTP token. Free dev flow: store it and (when DEV_OTP_ECHO) echo
-// it back so the UI can show it. TODO: deliver via Telegram bot / SMS.
+// Request an OTP token, delivered by EMAIL (free — replaces paid SMS).
 // ---------------------------------------------------------------------------
-export async function requestOtp(phoneRaw: string, purpose: "login" | "register"): Promise<OtpResult> {
-  const phone = normalizeTjPhone(phoneRaw);
-  if (!phone) return { ok: false, error: "Enter a valid +992 number first." };
+export async function requestOtp(
+  emailRaw: string,
+  purpose: "login" | "register",
+  locale?: Locale,
+): Promise<OtpResult> {
+  const email = normalizeEmail(emailRaw);
+  if (!email) return { ok: false, error: "Enter a valid email address first." };
 
   const admin = createAdminClient();
   const code = generateOtp();
   const expiresAt = new Date(Date.now() + authConfig.otpTtlMs).toISOString();
   const { error } = await admin
     .from("phone_otps")
-    .insert({ phone, code, purpose, expires_at: expiresAt });
-  if (error) return { ok: false, error: "Could not issue a token. Try again." };
+    .insert({ email, code, purpose, expires_at: expiresAt });
+  if (error) return { ok: false, error: "Could not issue a code. Try again." };
 
-  return {
-    ok: true,
-    devCode: authConfig.devOtpEcho ? code : undefined,
-    masterHint: authConfig.devOtp || undefined,
-  };
+  // Dev convenience: echo the code straight to the UI (no inbox needed).
+  if (authConfig.devOtpEcho) {
+    return { ok: true, devCode: code, masterHint: authConfig.devOtp || undefined };
+  }
+
+  const sent = await sendOtpEmail(email, code, otpLocale(locale));
+  if (!sent.ok) {
+    return { ok: false, error: "Could not send the code to that address. Check it and try again." };
+  }
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
 // Shared helpers (not exported => not callable as actions)
 // ---------------------------------------------------------------------------
-async function verifyOtp(admin: Admin, phone: string, code: string): Promise<boolean> {
-  if (authConfig.devOtp && code === authConfig.devOtp) return true;
+async function verifyOtp(admin: Admin, email: string, code: string): Promise<boolean> {
+  // Master dev code is honoured ONLY in dev/echo mode — never a prod backdoor.
+  if (authConfig.devOtpEcho && authConfig.devOtp && code === authConfig.devOtp) return true;
   const { data } = await admin
     .from("phone_otps")
     .select("id")
-    .eq("phone", phone)
+    .eq("email", email)
     .eq("code", code)
     .eq("consumed", false)
     .gt("expires_at", new Date().toISOString())
@@ -61,10 +73,9 @@ async function verifyOtp(admin: Admin, phone: string, code: string): Promise<boo
   return false;
 }
 
-/** Mint a real Supabase session cookie for the phone's user (self-heals a drifted password). */
-async function establishSession(phone: string, userId: string): Promise<void> {
-  const email = syntheticEmail(phone);
-  const password = derivePassword(phone);
+/** Mint a real Supabase session cookie for the email's user (self-heals a drifted password). */
+async function establishSession(email: string, userId: string): Promise<void> {
+  const password = derivePassword(email);
   const supabase = await createClient();
   let { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
@@ -79,26 +90,26 @@ async function establishSession(phone: string, userId: string): Promise<void> {
 // LOGIN
 // ---------------------------------------------------------------------------
 export async function loginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const phone = normalizeTjPhone(String(formData.get("phone") ?? ""));
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const otp = String(formData.get("otp") ?? "").trim();
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
-  if (!phone) fieldErrors.phone = "Enter a valid +992 number.";
-  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit token.";
+  if (!email) fieldErrors.email = "Enter a valid email address.";
+  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit code.";
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   const admin = createAdminClient();
-  if (!(await verifyOtp(admin, phone!, otp))) return { fieldErrors: { otp: "Invalid or expired token." } };
+  if (!(await verifyOtp(admin, email!, otp))) return { fieldErrors: { otp: "Invalid or expired code." } };
 
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
-    .eq("phone", phone!)
+    .eq("email", email!)
     .maybeSingle();
-  if (!profile) return { error: "No identity found for this number. Switch to Register." };
+  if (!profile) return { error: "No identity found for this email. Switch to Register." };
 
   try {
-    await establishSession(phone!, profile.id);
+    await establishSession(email!, profile.id);
   } catch {
     return { error: "Could not start the session. Try again." };
   }
@@ -109,7 +120,7 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
 // REGISTER
 // ---------------------------------------------------------------------------
 export async function registerAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const phone = normalizeTjPhone(String(formData.get("phone") ?? ""));
+  const email = normalizeEmail(String(formData.get("email") ?? ""));
   const otp = String(formData.get("otp") ?? "").trim();
   const promo = String(formData.get("promo") ?? "").trim();
   const terms = formData.get("terms");
@@ -121,27 +132,27 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   }
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
-  if (!phone) fieldErrors.phone = "Enter a valid +992 number.";
-  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit token.";
+  if (!email) fieldErrors.email = "Enter a valid email address.";
+  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit code.";
   if (Object.keys(socials).length === 0)
     fieldErrors.socials = "Connect at least one identity (Telegram, Instagram, TikTok or WhatsApp).";
   if (!(terms === "on" || terms === "true")) fieldErrors.terms = "Accept the protocol to continue.";
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   const admin = createAdminClient();
-  if (!(await verifyOtp(admin, phone!, otp))) return { fieldErrors: { otp: "Invalid or expired token." } };
+  if (!(await verifyOtp(admin, email!, otp))) return { fieldErrors: { otp: "Invalid or expired code." } };
 
   // Already registered? Just sign them in.
   const { data: existing } = await admin
     .from("profiles")
     .select("id")
-    .eq("phone", phone!)
+    .eq("email", email!)
     .maybeSingle();
   if (existing) {
     try {
-      await establishSession(phone!, existing.id);
+      await establishSession(email!, existing.id);
     } catch {
-      return { error: "This number already has an identity, but sign-in failed. Try Login." };
+      return { error: "This email already has an identity, but sign-in failed. Try Login." };
     }
     redirect("/home");
   }
@@ -160,37 +171,37 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
     promoRow = data as PromoRow;
   }
 
-  // Create the auth user (synthetic email + deterministic password).
-  const role = isAdminPhone(phone!) ? "admin" : "customer";
+  // Create the auth user (real email + deterministic password).
+  const role = isAdminEmail(email!) ? "admin" : "customer";
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email: syntheticEmail(phone!),
-    password: derivePassword(phone!),
+    email: email!,
+    password: derivePassword(email!),
     email_confirm: true,
-    user_metadata: { phone: phone!, role, socials },
+    user_metadata: { email: email!, role, socials },
   });
   if (createErr || !created?.user) return { error: "Could not initialize identity. Try again." };
   const userId = created.user.id;
 
   // Insert the profile (retry username on a unique clash).
-  let username = suggestUsername(phone!);
+  let username = suggestUsernameFromEmail(email!);
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const { error } = await admin
       .from("profiles")
-      .insert({ id: userId, username, phone: phone!, role, socials });
+      .insert({ id: userId, username, email: email!, role, socials });
     if (!error) {
       lastErr = null;
       break;
     }
     lastErr = error;
     if (String(error.message).toLowerCase().includes("username")) {
-      username = suggestUsername(phone!);
+      username = suggestUsernameFromEmail(email!);
       continue;
     }
     break;
   }
   if (lastErr) {
-    await admin.auth.admin.deleteUser(userId); // roll back so the phone is reusable
+    await admin.auth.admin.deleteUser(userId); // roll back so the email is reusable
     return { error: "Could not save the profile. Try again." };
   }
 
@@ -230,7 +241,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
   }
 
   try {
-    await establishSession(phone!, userId);
+    await establishSession(email!, userId);
   } catch {
     return { error: "Identity created, but sign-in failed. Try Login." };
   }

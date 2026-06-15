@@ -7,17 +7,16 @@ import { ArrowRight, LogOut, ShieldCheck } from "lucide-react";
 import { ParticleField } from "@/components/fx/ParticleField";
 import { ThemeToggle } from "./ThemeToggle";
 import { BRAND } from "@/lib/config";
-import { formatTjPhone } from "@/lib/utils";
 import type { Role } from "@/types";
 
 type Props = {
-  phone?: string;
+  email?: string;
   username?: string;
   role?: Role;
   logoutAction: () => Promise<void>;
 };
 
-export function SignedInNotice({ phone, username, role, logoutAction }: Props) {
+export function SignedInNotice({ email, username, role, logoutAction }: Props) {
   const [pending, startLogout] = useTransition();
 
   return (
@@ -40,9 +39,9 @@ export function SignedInNotice({ phone, username, role, logoutAction }: Props) {
         </p>
         <h1 className="text-2xl font-black uppercase tracking-tight">You&apos;re already signed in</h1>
         <p className="mt-2 text-sm text-fg-muted">
-          {phone ? (
+          {email ? (
             <>
-              Identity <span className="font-mono text-fg">{formatTjPhone(phone)}</span>
+              Identity <span className="font-mono text-fg">{email}</span>
               {username ? <> · @{username}</> : null}
               {role && role !== "customer" ? (
                 <span className="neon-border ml-2 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">

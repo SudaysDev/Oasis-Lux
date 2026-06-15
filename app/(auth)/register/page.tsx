@@ -16,12 +16,12 @@ export default async function RegisterPage() {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("phone, username, role")
+      .select("email, username, role")
       .eq("id", user.id)
       .maybeSingle();
     return (
       <SignedInNotice
-        phone={profile?.phone}
+        email={profile?.email ?? user.email ?? undefined}
         username={profile?.username}
         role={profile?.role as Role | undefined}
         logoutAction={logoutAction}

@@ -2,7 +2,7 @@
 import type { SocialPlatform } from "@/types";
 
 export type AuthMode = "login" | "register";
-export type AuthFieldKey = "phone" | "otp" | "promo" | "socials" | "terms";
+export type AuthFieldKey = "email" | "otp" | "promo" | "socials" | "terms";
 
 /** Returned by the login/register Server Actions on failure (they redirect on success). */
 export type AuthFormState =

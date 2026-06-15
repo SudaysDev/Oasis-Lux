@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { ArrowRight, KeyRound, LoaderCircle, ShieldCheck, Ticket, UserCog } from "lucide-react";
+import { ArrowRight, KeyRound, LoaderCircle, Mail, ShieldCheck, Ticket, UserCog } from "lucide-react";
 import { SocialConnect } from "./SocialConnect";
-import { isValidTjPhone, tjNationalDigits } from "@/lib/utils";
+import { useT } from "@/hooks/useT";
 import { BRAND } from "@/lib/config";
 import { SOCIAL_ORDER, type AuthFormState, type AuthMode, type OtpResult } from "@/lib/auth/shared";
-import type { Socials } from "@/types";
+import type { Locale, Socials } from "@/types";
 
-type RequestOtp = (phoneRaw: string, purpose: AuthMode) => Promise<OtpResult>;
+type RequestOtp = (email: string, purpose: AuthMode, locale?: Locale) => Promise<OtpResult>;
 
 type Props = {
   mode: AuthMode;
@@ -22,12 +22,10 @@ type Props = {
   requestOtp: RequestOtp;
   socials: Socials;
   onSocialsChange: (next: Socials) => void;
-  adminPhone?: string;
+  adminEmail?: string;
 };
 
-function groupNational(d: string): string {
-  return [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(" ");
-}
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthForm({
   mode,
@@ -37,11 +35,12 @@ export function AuthForm({
   requestOtp,
   socials,
   onSocialsChange,
-  adminPhone,
+  adminEmail,
 }: Props) {
   const isRegister = mode === "register";
+  const { t, locale } = useT();
 
-  const [national, setNational] = useState("");
+  const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [promo, setPromo] = useState("");
   const [terms, setTerms] = useState(false);
@@ -62,12 +61,12 @@ export function AuthForm({
   const fe = state?.fieldErrors;
 
   const sendToken = () => {
-    if (!isValidTjPhone(national)) {
-      toast.error("Enter a valid +992 number first.");
+    if (!EMAIL_RE.test(email.trim())) {
+      toast.error("Enter a valid email first.");
       return;
     }
     startOtp(async () => {
-      const res = await requestOtp(national, mode);
+      const res = await requestOtp(email.trim(), mode, locale);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -75,28 +74,28 @@ export function AuthForm({
       setOtpSent(true);
       setCountdown(60);
       if (res.devCode) {
-        setOtp(res.devCode); // dev convenience: auto-fill the issued token
+        setOtp(res.devCode); // dev convenience: auto-fill the issued code
         setDevHint(res.devCode);
-        toast.success(`Token issued · ${res.devCode}`);
+        toast.success(`Code issued · ${res.devCode}`);
       } else {
         setDevHint(res.masterHint ?? null);
-        toast.success("Token sent.");
+        toast.success("Code sent — check your inbox.");
       }
       otpRef.current?.focus();
     });
   };
 
   const useAdmin = () => {
-    if (!adminPhone) return;
-    setNational(tjNationalDigits(adminPhone));
-    toast("Operator number loaded — request a token.", { icon: "⌁" });
+    if (!adminEmail) return;
+    setEmail(adminEmail);
+    toast("Operator email loaded — request a code.", { icon: "⌁" });
   };
 
   return (
     <div className="relative flex w-full items-center justify-center p-6 sm:p-10">
       <div className="w-full max-w-md">
         {/* brand */}
-        <div className="mb-8 flex items-center gap-3">
+        <div className="mb-6 flex items-center gap-3">
           <Image src={BRAND.icon} alt={BRAND.name} width={44} height={44} className="rounded-xl" priority />
           <div>
             <p className="text-sm font-semibold leading-tight">{BRAND.name}</p>
@@ -112,37 +111,36 @@ export function AuthForm({
         </h1>
         <p className="mt-2 text-sm text-fg-muted">
           {isRegister
-            ? "Phone is your identity. No passwords — verify with a one-time token."
-            : "Enter your number and the one-time token to re-enter the grid."}
+            ? "Your email is your identity. No passwords — verify with a one-time code we email you."
+            : "Enter your email and the one-time code we email you to re-enter the grid."}
         </p>
 
-        <form action={formAction} className="mt-7 space-y-5">
-          {/* phone */}
+        <form action={formAction} className="mt-6 space-y-4">
+          {/* email */}
           <label className="block">
             <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.25em] text-fg-muted">
-              Mobile Identifier
+              Email Identifier
             </span>
             <div className="glass flex items-center overflow-hidden rounded-xl transition focus-within:neon-border">
-              <span className="border-r border-[var(--panel-border)] px-3 py-3 font-mono text-sm text-accent">
-                +992
-              </span>
+              <Mail className="ml-3 h-4 w-4 text-fg-muted" />
               <input
-                value={groupNational(national)}
-                onChange={(e) => setNational(tjNationalDigits(e.target.value))}
-                inputMode="numeric"
-                autoComplete="tel-national"
-                placeholder="90 123 45 67"
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="you@example.com"
                 className="flex-1 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-fg-muted/50"
               />
             </div>
-            <input type="hidden" name="phone" value={national} />
-            {fe?.phone && <span className="mt-1 block text-[11px] text-danger">{fe.phone}</span>}
+            {fe?.email && <span className="mt-1 block text-[11px] text-danger">{fe.email}</span>}
           </label>
 
           {/* otp */}
           <label className="block">
             <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.25em] text-fg-muted">
-              Offline Code · OTP
+              Email Code · OTP
             </span>
             <div className="glass flex items-center overflow-hidden rounded-xl transition focus-within:neon-border">
               <KeyRound className="ml-3 h-4 w-4 text-fg-muted" />
@@ -162,12 +160,12 @@ export function AuthForm({
                 disabled={otpPending || countdown > 0}
                 className="h-full border-l border-[var(--panel-border)] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-accent transition hover:bg-accent/10 disabled:opacity-50"
               >
-                {otpPending ? "…" : countdown > 0 ? `${countdown}s` : otpSent ? "Resend" : "Send Token"}
+                {otpPending ? "…" : countdown > 0 ? `${countdown}s` : otpSent ? "Resend" : "Send Code"}
               </button>
             </div>
             {devHint && (
               <span className="mt-1 block font-mono text-[11px] text-success">
-                dev token ▸ {devHint}
+                dev code ▸ {devHint}
               </span>
             )}
             {fe?.otp && <span className="mt-1 block text-[11px] text-danger">{fe.otp}</span>}
@@ -247,8 +245,14 @@ export function AuthForm({
           </button>
         </form>
 
+        {/* security note — never share the code */}
+        <p className="mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-fg-muted">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
+          {t("auth.securityNote")}
+        </p>
+
         {/* footer: switch mode + admin shortcut */}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
           {isRegister ? (
             <p className="text-fg-muted">
               Already inside?{" "}
@@ -265,7 +269,7 @@ export function AuthForm({
             </p>
           )}
 
-          {!isRegister && adminPhone && (
+          {!isRegister && adminEmail && (
             <button
               type="button"
               onClick={useAdmin}

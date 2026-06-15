@@ -17,12 +17,12 @@ export default async function LoginPage() {
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("phone, username, role")
+      .select("email, username, role")
       .eq("id", user.id)
       .maybeSingle();
     return (
       <SignedInNotice
-        phone={profile?.phone}
+        email={profile?.email ?? user.email ?? undefined}
         username={profile?.username}
         role={profile?.role as Role | undefined}
         logoutAction={logoutAction}
@@ -35,7 +35,7 @@ export default async function LoginPage() {
       mode="login"
       submitAction={loginAction}
       requestOtp={requestOtp}
-      adminPhone={authConfig.adminPhones[0]}
+      adminEmail={authConfig.adminEmails[0]}
     />
   );
 }

@@ -118,6 +118,63 @@ export async function fetchProductSellers(sb: SupabaseClient, ids: string[]): Pr
   return out;
 }
 
+export interface SellerCard extends MiniProfile {
+  itemCount: number;
+  avgRating: number;
+}
+
+/**
+ * Top sellers for the home "boutiques" rail — derived from active listings:
+ * group by seller, count items and average their ratings. Best-effort (returns
+ * [] on any error) so the UI can blend in curated fallbacks.
+ */
+export async function fetchTopSellers(sb: SupabaseClient, limit = 12): Promise<SellerCard[]> {
+  try {
+    const { data } = await sb
+      .from("products")
+      .select("seller_id, rating")
+      .eq("is_active", true)
+      .limit(400);
+    const rows = (data ?? []) as { seller_id: string | null; rating: number | string }[];
+
+    const agg = new Map<string, { count: number; sum: number }>();
+    for (const r of rows) {
+      if (!r.seller_id || !UUID_RE.test(r.seller_id)) continue;
+      const a = agg.get(r.seller_id) ?? { count: 0, sum: 0 };
+      a.count += 1;
+      a.sum += Number(r.rating) || 0;
+      agg.set(r.seller_id, a);
+    }
+    const top = [...agg.entries()].sort((a, b) => b[1].count - a[1].count).slice(0, limit);
+    if (top.length === 0) return [];
+
+    const { data: profs } = await sb
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, plan, is_verified")
+      .in("id", top.map(([id]) => id));
+    const byId = new Map(((profs ?? []) as MiniRow[]).map((p) => [p.id, p] as const));
+
+    const out: SellerCard[] = [];
+    for (const [id, a] of top) {
+      const p = byId.get(id);
+      if (!p) continue;
+      out.push({
+        id: p.id,
+        username: p.username,
+        fullName: p.full_name ?? "",
+        avatarUrl: p.avatar_url ?? undefined,
+        plan: p.plan ?? "free",
+        isVerified: p.is_verified ?? false,
+        itemCount: a.count,
+        avgRating: a.count ? a.sum / a.count : 0,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** Minimal seller identity for the "sold by" card. */
 export async function fetchSellerMini(sb: SupabaseClient, id: string): Promise<MiniProfile | null> {
   if (!UUID_RE.test(id)) return null;
