@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AuthExperience } from "@/components/auth/AuthExperience";
 import { SignedInNotice } from "@/components/auth/SignedInNotice";
 import { authConfig } from "@/lib/auth/server";
-import { loginAction, logoutAction, requestOtp } from "../actions";
+import { loginAction, logoutAction } from "../actions";
 import type { Role } from "@/types";
 
 export const metadata: Metadata = { title: "Login" };
@@ -34,7 +34,6 @@ export default async function LoginPage() {
     <AuthExperience
       mode="login"
       submitAction={loginAction}
-      requestOtp={requestOtp}
       adminEmail={authConfig.adminEmails[0]}
     />
   );

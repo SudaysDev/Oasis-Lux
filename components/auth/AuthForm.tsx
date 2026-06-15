@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import toast from "react-hot-toast";
-import { ArrowRight, KeyRound, LoaderCircle, Mail, ShieldCheck, Ticket, UserCog } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LoaderCircle, Lock, Mail, ShieldCheck, Ticket, UserCog } from "lucide-react";
 import { SocialConnect } from "./SocialConnect";
 import { useT } from "@/hooks/useT";
 import { BRAND } from "@/lib/config";
-import { SOCIAL_ORDER, type AuthFormState, type AuthMode, type OtpResult } from "@/lib/auth/shared";
-import type { Locale, Socials } from "@/types";
-
-type RequestOtp = (email: string, purpose: AuthMode, locale?: Locale) => Promise<OtpResult>;
+import { MIN_PASSWORD, SOCIAL_ORDER, type AuthFormState, type AuthMode } from "@/lib/auth/shared";
+import type { Socials } from "@/types";
 
 type Props = {
   mode: AuthMode;
@@ -19,81 +16,35 @@ type Props = {
   formAction: (formData: FormData) => void;
   state: AuthFormState;
   pending: boolean;
-  requestOtp: RequestOtp;
   socials: Socials;
   onSocialsChange: (next: Socials) => void;
   adminEmail?: string;
 };
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthForm({
   mode,
   formAction,
   state,
   pending,
-  requestOtp,
   socials,
   onSocialsChange,
   adminEmail,
 }: Props) {
   const isRegister = mode === "register";
-  const { t, locale } = useT();
+  const { t } = useT();
 
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
   const [promo, setPromo] = useState("");
   const [terms, setTerms] = useState(false);
-
-  const [otpSent, setOtpSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [devHint, setDevHint] = useState<string | null>(null);
-  const [otpPending, startOtp] = useTransition();
-  const otpRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const t = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(t);
-  }, [countdown]);
 
   const socialCount = Object.keys(socials).length;
   const fe = state?.fieldErrors;
 
-  const sendToken = () => {
-    if (!EMAIL_RE.test(email.trim())) {
-      toast.error("Enter a valid email first.");
-      return;
-    }
-    startOtp(async () => {
-      const res = await requestOtp(email.trim(), mode, locale);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setOtpSent(true);
-      setCountdown(60);
-      if (res.devCode) {
-        setOtp(res.devCode); // dev convenience: auto-fill the issued code
-        setDevHint(res.devCode);
-        toast.success(`Code issued · ${res.devCode}`);
-        if (res.emailSent === false) {
-          toast(`Email not delivered — ${res.emailError ?? "verify a domain in Resend"}`, { icon: "✉️", duration: 6000 });
-        } else if (res.emailSent) {
-          toast.success("Also emailed to your inbox ✓");
-        }
-      } else {
-        setDevHint(null);
-        toast.success("Code sent — check your inbox (and spam).");
-      }
-      otpRef.current?.focus();
-    });
-  };
-
   const useAdmin = () => {
     if (!adminEmail) return;
     setEmail(adminEmail);
-    toast("Operator email loaded — request a code.", { icon: "⌁" });
   };
 
   return (
@@ -116,8 +67,8 @@ export function AuthForm({
         </h1>
         <p className="mt-2 text-sm text-fg-muted">
           {isRegister
-            ? "Your email is your identity. No passwords — verify with a one-time code we email you."
-            : "Enter your email and the one-time code we email you to re-enter the grid."}
+            ? "Create your identity with an email and a password — that's it."
+            : "Enter your email and password to re-enter the grid."}
         </p>
 
         <form action={formAction} className="mt-6 space-y-4">
@@ -142,38 +93,32 @@ export function AuthForm({
             {fe?.email && <span className="mt-1 block text-[11px] text-danger">{fe.email}</span>}
           </label>
 
-          {/* otp */}
+          {/* password */}
           <label className="block">
             <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.25em] text-fg-muted">
-              Email Code · OTP
+              Password
             </span>
             <div className="glass flex items-center overflow-hidden rounded-xl transition focus-within:neon-border">
-              <KeyRound className="ml-3 h-4 w-4 text-fg-muted" />
+              <Lock className="ml-3 h-4 w-4 text-fg-muted" />
               <input
-                ref={otpRef}
-                name="otp"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="••••••"
-                className="flex-1 bg-transparent px-3 py-3 font-mono text-sm tracking-[0.4em] outline-none placeholder:tracking-normal placeholder:text-fg-muted/50"
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPw ? "text" : "password"}
+                autoComplete={isRegister ? "new-password" : "current-password"}
+                placeholder={isRegister ? `At least ${MIN_PASSWORD} characters` : "Your password"}
+                className="flex-1 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-fg-muted/50"
               />
               <button
                 type="button"
-                onClick={sendToken}
-                disabled={otpPending || countdown > 0}
-                className="h-full border-l border-[var(--panel-border)] px-4 py-3 font-mono text-[11px] uppercase tracking-[0.2em] text-accent transition hover:bg-accent/10 disabled:opacity-50"
+                onClick={() => setShowPw((s) => !s)}
+                aria-label={showPw ? "Hide password" : "Show password"}
+                className="px-3 py-3 text-fg-muted transition hover:text-accent"
               >
-                {otpPending ? "…" : countdown > 0 ? `${countdown}s` : otpSent ? "Resend" : "Send Code"}
+                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {devHint && (
-              <span className="mt-1 block font-mono text-[11px] text-success">
-                dev code ▸ {devHint}
-              </span>
-            )}
-            {fe?.otp && <span className="mt-1 block text-[11px] text-danger">{fe.otp}</span>}
+            {fe?.password && <span className="mt-1 block text-[11px] text-danger">{fe.password}</span>}
           </label>
 
           {/* register-only: promo + socials (compact, for mobile) + terms */}
@@ -250,7 +195,7 @@ export function AuthForm({
           </button>
         </form>
 
-        {/* security note — never share the code */}
+        {/* security note */}
         <p className="mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-fg-muted">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
           {t("auth.securityNote")}

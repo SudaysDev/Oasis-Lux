@@ -5,17 +5,16 @@ import { ParticleField } from "@/components/fx/ParticleField";
 import { SocialOrbits } from "./SocialOrbits";
 import { AuthForm } from "./AuthForm";
 import { ThemeToggle } from "./ThemeToggle";
-import type { AuthFormState, AuthMode, OtpResult } from "@/lib/auth/shared";
-import type { Locale, Socials } from "@/types";
+import type { AuthFormState, AuthMode } from "@/lib/auth/shared";
+import type { Socials } from "@/types";
 
 type Props = {
   mode: AuthMode;
   submitAction: (prev: AuthFormState, formData: FormData) => Promise<AuthFormState>;
-  requestOtp: (email: string, purpose: AuthMode, locale?: Locale) => Promise<OtpResult>;
   adminEmail?: string;
 };
 
-export function AuthExperience({ mode, submitAction, requestOtp, adminEmail }: Props) {
+export function AuthExperience({ mode, submitAction, adminEmail }: Props) {
   const [socials, setSocials] = useState<Socials>({});
   const [state, formAction, pending] = useActionState<AuthFormState, FormData>(submitAction, undefined);
 
@@ -51,7 +50,6 @@ export function AuthExperience({ mode, submitAction, requestOtp, adminEmail }: P
             formAction={formAction}
             state={state}
             pending={pending}
-            requestOtp={requestOtp}
             socials={socials}
             onSocialsChange={setSocials}
             adminEmail={adminEmail}

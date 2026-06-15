@@ -3,129 +3,34 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  authConfig,
-  derivePassword,
-  normalizeEmail,
-  isAdminEmail,
-  generateOtp,
-  suggestUsernameFromEmail,
-} from "@/lib/auth/server";
-import { sendOtpEmail } from "@/lib/email/otp";
-import { SOCIAL_ORDER, type AuthFormState, type OtpResult } from "@/lib/auth/shared";
-import type { Locale, Socials } from "@/types";
-
-type Admin = ReturnType<typeof createAdminClient>;
-
-const otpLocale = (l?: string): "en" | "ru" | "tg" =>
-  l === "en" || l === "ru" || l === "tg" ? l : "ru";
+import { normalizeEmail, isAdminEmail, suggestUsernameFromEmail } from "@/lib/auth/server";
+import { MIN_PASSWORD, SOCIAL_ORDER, type AuthFormState } from "@/lib/auth/shared";
+import type { Socials } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Request an OTP token, delivered by EMAIL (free — replaces paid SMS).
-// ---------------------------------------------------------------------------
-export async function requestOtp(
-  emailRaw: string,
-  purpose: "login" | "register",
-  locale?: Locale,
-): Promise<OtpResult> {
-  const email = normalizeEmail(emailRaw);
-  if (!email) return { ok: false, error: "Enter a valid email address first." };
-
-  const admin = createAdminClient();
-  const code = generateOtp();
-  const expiresAt = new Date(Date.now() + authConfig.otpTtlMs).toISOString();
-  const { error } = await admin
-    .from("phone_otps")
-    .insert({ email, code, purpose, expires_at: expiresAt });
-  if (error) return { ok: false, error: "Could not issue a code. Try again." };
-
-  // ALWAYS attempt real email delivery (Resend).
-  const sent = await sendOtpEmail(email, code, otpLocale(locale));
-
-  // Dev echo just *additionally* surfaces the code so local testing never
-  // blocks — the email is still dispatched above. We also report whether the
-  // email truly went out (Resend's sandbox sender only delivers to your own
-  // account address until you verify a domain).
-  if (authConfig.devOtpEcho) {
-    return { ok: true, devCode: code, emailSent: sent.ok, emailError: sent.ok ? undefined : sent.error };
-  }
-  if (!sent.ok) {
-    return { ok: false, error: `Could not email the code: ${sent.error}` };
-  }
-  return { ok: true, emailSent: true };
-}
-
-// ---------------------------------------------------------------------------
-// Shared helpers (not exported => not callable as actions)
-// ---------------------------------------------------------------------------
-async function verifyOtp(admin: Admin, email: string, code: string): Promise<boolean> {
-  // Master dev code is honoured ONLY in dev/echo mode — never a prod backdoor.
-  if (authConfig.devOtpEcho && authConfig.devOtp && code === authConfig.devOtp) return true;
-  const { data } = await admin
-    .from("phone_otps")
-    .select("id")
-    .eq("email", email)
-    .eq("code", code)
-    .eq("consumed", false)
-    .gt("expires_at", new Date().toISOString())
-    .order("id", { ascending: false })
-    .limit(1);
-  if (data && data.length) {
-    await admin.from("phone_otps").update({ consumed: true }).eq("id", data[0].id);
-    return true;
-  }
-  return false;
-}
-
-/** Mint a real Supabase session cookie for the email's user (self-heals a drifted password). */
-async function establishSession(email: string, userId: string): Promise<void> {
-  const password = derivePassword(email);
-  const supabase = await createClient();
-  let { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    const admin = createAdminClient();
-    await admin.auth.admin.updateUserById(userId, { password });
-    ({ error } = await supabase.auth.signInWithPassword({ email, password }));
-  }
-  if (error) throw new Error(`establishSession: ${error.message}`);
-}
-
-// ---------------------------------------------------------------------------
-// LOGIN
+// LOGIN — classic email + password (no OTP, no SMS, no email round-trip).
 // ---------------------------------------------------------------------------
 export async function loginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
-  const otp = String(formData.get("otp") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
   if (!email) fieldErrors.email = "Enter a valid email address.";
-  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit code.";
+  if (!password) fieldErrors.password = "Enter your password.";
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
-  const admin = createAdminClient();
-  if (!(await verifyOtp(admin, email!, otp))) return { fieldErrors: { otp: "Invalid or expired code." } };
-
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("email", email!)
-    .maybeSingle();
-  if (!profile) return { error: "No identity found for this email. Switch to Register." };
-
-  try {
-    await establishSession(email!, profile.id);
-  } catch {
-    return { error: "Could not start the session. Try again." };
-  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: email!, password });
+  if (error) return { error: "Invalid email or password." };
   redirect("/home");
 }
 
 // ---------------------------------------------------------------------------
-// REGISTER
+// REGISTER — create the identity with the user's own password.
 // ---------------------------------------------------------------------------
 export async function registerAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
-  const otp = String(formData.get("otp") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
   const promo = String(formData.get("promo") ?? "").trim();
   const terms = formData.get("terms");
 
@@ -137,29 +42,21 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
   if (!email) fieldErrors.email = "Enter a valid email address.";
-  if (!/^\d{6}$/.test(otp)) fieldErrors.otp = "Enter the 6-digit code.";
+  if (password.length < MIN_PASSWORD) fieldErrors.password = `Use at least ${MIN_PASSWORD} characters.`;
   if (Object.keys(socials).length === 0)
     fieldErrors.socials = "Connect at least one identity (Telegram, Instagram, TikTok or WhatsApp).";
   if (!(terms === "on" || terms === "true")) fieldErrors.terms = "Accept the protocol to continue.";
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   const admin = createAdminClient();
-  if (!(await verifyOtp(admin, email!, otp))) return { fieldErrors: { otp: "Invalid or expired code." } };
 
-  // Already registered? Just sign them in.
+  // Already registered? Send them to login (we never silently reset passwords).
   const { data: existing } = await admin
     .from("profiles")
     .select("id")
     .eq("email", email!)
     .maybeSingle();
-  if (existing) {
-    try {
-      await establishSession(email!, existing.id);
-    } catch {
-      return { error: "This email already has an identity, but sign-in failed. Try Login." };
-    }
-    redirect("/home");
-  }
+  if (existing) return { fieldErrors: { email: "This email is already registered. Switch to Login." } };
 
   // Validate optional invite/promo.
   type PromoRow = { id: string; type: string; value: number; used_count: number };
@@ -175,15 +72,18 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
     promoRow = data as PromoRow;
   }
 
-  // Create the auth user (real email + deterministic password).
+  // Create the auth user (real email + the user's chosen password).
   const role = isAdminEmail(email!) ? "admin" : "customer";
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: email!,
-    password: derivePassword(email!),
+    password,
     email_confirm: true,
     user_metadata: { email: email!, role, socials },
   });
-  if (createErr || !created?.user) return { error: "Could not initialize identity. Try again." };
+  if (createErr || !created?.user) {
+    // Most common cause: the email already exists in auth (e.g. an older account).
+    return { fieldErrors: { email: "Could not register this email. Try Login or use another email." } };
+  }
   const userId = created.user.id;
 
   // Insert the profile (retry username on a unique clash).
@@ -244,16 +144,15 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
     });
   }
 
-  try {
-    await establishSession(email!, userId);
-  } catch {
-    return { error: "Identity created, but sign-in failed. Try Login." };
-  }
+  // Sign in with the chosen password to mint the session.
+  const supabase = await createClient();
+  const { error: signInErr } = await supabase.auth.signInWithPassword({ email: email!, password });
+  if (signInErr) return { error: "Identity created, but sign-in failed. Try Login." };
   redirect("/home");
 }
 
 // ---------------------------------------------------------------------------
-// LOGOUT (used by the app shell later)
+// LOGOUT
 // ---------------------------------------------------------------------------
 export async function logoutAction(): Promise<void> {
   const supabase = await createClient();

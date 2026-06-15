@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { AuthExperience } from "@/components/auth/AuthExperience";
 import { SignedInNotice } from "@/components/auth/SignedInNotice";
-import { registerAction, logoutAction, requestOtp } from "../actions";
+import { registerAction, logoutAction } from "../actions";
 import type { Role } from "@/types";
 
 export const metadata: Metadata = { title: "Register" };
@@ -29,5 +29,5 @@ export default async function RegisterPage() {
     );
   }
 
-  return <AuthExperience mode="register" submitAction={registerAction} requestOtp={requestOtp} />;
+  return <AuthExperience mode="register" submitAction={registerAction} />;
 }

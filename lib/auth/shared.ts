@@ -2,17 +2,15 @@
 import type { SocialPlatform } from "@/types";
 
 export type AuthMode = "login" | "register";
-export type AuthFieldKey = "email" | "otp" | "promo" | "socials" | "terms";
+export type AuthFieldKey = "email" | "password" | "promo" | "socials" | "terms";
 
 /** Returned by the login/register Server Actions on failure (they redirect on success). */
 export type AuthFormState =
   | { error?: string; fieldErrors?: Partial<Record<AuthFieldKey, string>> }
   | undefined;
 
-/** Result of requesting an OTP token. */
-export type OtpResult =
-  | { ok: true; devCode?: string; emailSent?: boolean; emailError?: string }
-  | { ok: false; error: string };
+/** Minimum password length enforced on register (and hinted in the UI). */
+export const MIN_PASSWORD = 8;
 
 export const SOCIAL_ORDER: SocialPlatform[] = ["telegram", "instagram", "tiktok", "whatsapp"];
 
