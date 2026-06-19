@@ -1,18 +1,29 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeEmail, isAdminEmail, suggestUsernameFromEmail } from "@/lib/auth/server";
+import { findAdminByKey, isOperatorEmail, type AdminAccount } from "@/lib/auth/admin-accounts";
 import { MIN_PASSWORD, SOCIAL_ORDER, type AuthFormState } from "@/lib/auth/shared";
-import type { Socials } from "@/types";
+import type { Role, Socials } from "@/types";
+
+/** Where each role lands after authentication. */
+function homeForRole(role: Role | null | undefined): string {
+  if (role === "admin") return "/admin";
+  if (role === "courier") return "/courier";
+  return "/home";
+}
 
 // ---------------------------------------------------------------------------
 // LOGIN — classic email + password (no OTP, no SMS, no email round-trip).
+// `kind` distinguishes the client and courier tabs; admins use adminLoginAction.
 // ---------------------------------------------------------------------------
 export async function loginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
+  const kind = String(formData.get("kind") ?? "client"); // "client" | "courier"
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
   if (!email) fieldErrors.email = "Enter a valid email address.";
@@ -22,7 +33,96 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email: email!, password });
   if (error) return { error: "Invalid email or password." };
-  redirect("/home");
+
+  // Resolve the role to route correctly (and to gate the courier tab).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user!.id)
+    .maybeSingle();
+  const role = (profile?.role as Role | undefined) ?? "customer";
+
+  if (kind === "courier" && role !== "courier") {
+    await supabase.auth.signOut();
+    return { error: "This account is not registered as a courier." };
+  }
+
+  redirect(homeForRole(role));
+}
+
+// ---------------------------------------------------------------------------
+// ADMIN LOGIN — no email, no registration. A single secret operator key both
+// authenticates and identifies which of the fixed operator accounts logs in.
+// The Supabase identity is provisioned lazily on first use.
+// ---------------------------------------------------------------------------
+export async function adminLoginAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
+  const key = String(formData.get("password") ?? "");
+  if (!key) return { fieldErrors: { password: "Enter your admin key." } };
+
+  const account = findAdminByKey(key);
+  if (!account) return { error: "Admin key rejected. Access denied." };
+
+  const admin = createAdminClient();
+  try {
+    await ensureAdminAccount(admin, account);
+  } catch {
+    return { error: "Admin provisioning failed. Try again." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email: account.email, password: account.key });
+  if (error) return { error: "Admin sign-in failed. Try again." };
+  redirect("/admin");
+}
+
+/** Idempotently ensure an operator's auth user + admin profile exist. */
+async function ensureAdminAccount(admin: SupabaseClient, acc: AdminAccount): Promise<void> {
+  // Fast path: profile already present — just guarantee the admin role.
+  const { data: prof } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("email", acc.email)
+    .maybeSingle();
+  if (prof) {
+    if (prof.role !== "admin") await admin.from("profiles").update({ role: "admin" }).eq("id", prof.id);
+    return;
+  }
+
+  // Create (or locate) the auth user.
+  let userId: string | null = null;
+  const { data: created } = await admin.auth.admin.createUser({
+    email: acc.email,
+    password: acc.key,
+    email_confirm: true,
+    user_metadata: { role: "admin", operator: true },
+  });
+  if (created?.user) {
+    userId = created.user.id;
+  } else {
+    // Auth user likely already exists (e.g. profile was deleted) — find + reset it.
+    const { data: list } = await admin.auth.admin.listUsers();
+    const found = list?.users.find((u) => u.email?.toLowerCase() === acc.email.toLowerCase());
+    if (found) {
+      userId = found.id;
+      await admin.auth.admin.updateUserById(found.id, { password: acc.key, email_confirm: true });
+    }
+  }
+  if (!userId) throw new Error("admin provision failed");
+
+  // Seed the profile. Keep the default nickname unless it's already taken.
+  let username = acc.username;
+  const { data: clash } = await admin.from("profiles").select("id").ilike("username", username).maybeSingle();
+  if (clash) username = `${acc.username}_${userId.slice(0, 4)}`;
+  await admin.from("profiles").upsert({
+    id: userId,
+    username,
+    email: acc.email,
+    role: "admin",
+    phone: null,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +142,7 @@ export async function registerAction(_prev: AuthFormState, formData: FormData): 
 
   const fieldErrors: NonNullable<AuthFormState>["fieldErrors"] = {};
   if (!email) fieldErrors.email = "Enter a valid email address.";
+  else if (isOperatorEmail(email)) fieldErrors.email = "This identity is reserved.";
   if (password.length < MIN_PASSWORD) fieldErrors.password = `Use at least ${MIN_PASSWORD} characters.`;
   if (Object.keys(socials).length === 0)
     fieldErrors.socials = "Connect at least one identity (Telegram, Instagram, TikTok or WhatsApp).";

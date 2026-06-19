@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
+import { AdminPlaceholder } from "@/components/admin/AdminPlaceholder";
+
+export const metadata: Metadata = { title: "Logistics · Admin" };
+
 export default function Page() {
   return (
-    <main className="grid min-h-[60vh] place-items-center p-10">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-cyan-300/70">Admin Logistics · coming soon</p>
-    </main>
+    <AdminPlaceholder
+      kicker="Logistics"
+      title="Live deliveries"
+      blurb="A 3D Tajikistan map with pulsating courier routes on the left, an active-delivery command list on the right — driver telemetry, ETA timers and direct chat links."
+    />
   );
 }

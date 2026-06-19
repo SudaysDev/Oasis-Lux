@@ -14,6 +14,10 @@ const OSM_STYLE = {
       type: "raster" as const,
       tiles: ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png", "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png"],
       tileSize: 256,
+      // OSM only serves up to z19. With a tilted (pitch) camera maplibre would
+      // otherwise request z20–22 for the near field → "Failed to fetch" spam.
+      // Cap here so it overzooms from 19 instead of fetching nonexistent tiles.
+      maxzoom: 19,
       attribution: "© OpenStreetMap",
     },
   },
@@ -57,6 +61,14 @@ export function RouteMap({
         attributionControl: false,
       });
       mapRef.current = map;
+      // Swallow transient raster-tile fetch errors (OSM rate-limits / offline) so
+      // they don't spam the console & the Next dev error overlay.
+      map.on("error", (e) => {
+        const msg = e?.error?.message ?? "";
+        if (/tile|fetch|\.png/i.test(msg)) return;
+        // eslint-disable-next-line no-console
+        console.warn("[map]", msg);
+      });
       map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
 
       const mkEl = (html: string, cls: string) => {

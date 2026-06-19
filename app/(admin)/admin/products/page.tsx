@@ -1,7 +1,11 @@
-export default function Page() {
-  return (
-    <main className="grid min-h-[60vh] place-items-center p-10">
-      <p className="font-mono text-xs uppercase tracking-[0.3em] text-cyan-300/70">Admin Products · coming soon</p>
-    </main>
-  );
+import type { Metadata } from "next";
+import { getAdminInventory } from "@/lib/data/admin-inventory";
+import { InventoryClient } from "@/components/admin/InventoryClient";
+
+export const metadata: Metadata = { title: "Inventory · Admin" };
+export const dynamic = "force-dynamic";
+
+export default async function InventoryPage() {
+  const data = await getAdminInventory();
+  return <InventoryClient data={data} />;
 }
