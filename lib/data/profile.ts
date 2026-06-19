@@ -126,6 +126,7 @@ export interface ProfileBundle {
   reviews: UserReview[];
   stats: ProfileStats;
   isMe: boolean;
+  viewerId?: string;
 }
 
 export async function getProfileBundle(
@@ -170,5 +171,5 @@ export async function getProfileBundle(
     sales: 0,
   };
 
-  return { profile, products, reviews, stats, isMe: viewerId === subjectId };
+  return { profile, products, reviews, stats, isMe: viewerId === subjectId, viewerId };
 }

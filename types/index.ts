@@ -104,6 +104,12 @@ export interface FavoriteItem {
 export type LoyaltyTier = "Bronze" | "Silver" | "Gold" | "Platinum";
 export type Plan = "free" | "pro" | "elite";
 
+/** A free-form profile link (website, GitHub, …) with a short label. */
+export interface ProfileLink {
+  label: string;
+  url: string;
+}
+
 export interface Profile {
   id: string;
   username: string;
@@ -113,6 +119,8 @@ export interface Profile {
   phone: string;
   role: Role;
   socials: Socials;
+  birthday?: string;
+  links: ProfileLink[];
   telegramChatId?: string;
   loyaltyTier: LoyaltyTier;
   loyaltyPoints: number;
@@ -122,6 +130,7 @@ export interface Profile {
   bio?: string;
   plan: Plan;
   isVerified: boolean;
+  showPhone: boolean;
   createdAt: string;
 }
 

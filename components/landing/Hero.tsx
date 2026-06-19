@@ -2,9 +2,14 @@
 
 import type { MouseEvent } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
 import { ArrowRight, MousePointer2, Sparkles } from "lucide-react";
-import { Hero3D } from "./Hero3D";
+
+// three.js (react-three-fiber + drei) is the single heaviest thing to compile/
+// ship. Load it lazily, client-only, so it never blocks SSR or the main bundle
+// — the 3D orb just fades in a beat later.
+const Hero3D = dynamic(() => import("./Hero3D").then((m) => m.Hero3D), { ssr: false });
 
 const MINI = [
   { v: "18.4k+", l: "Decants delivered" },

@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Bot, History, ImagePlus, MessageSquarePlus, Minus, Sparkles, Trash2, User, X } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ArrowUp, Bot, History, ImagePlus, MessageSquare, MessageSquarePlus, Minus, MoreHorizontal, Pin, PinOff, Sparkles, Trash2, User, X } from "lucide-react";
 import { Markdown } from "./Markdown";
-import { loadChats, saveChats, titleFrom, type AiChat, type AiChatMessage } from "@/lib/ai-history";
+import { loadChats, saveChats, sortChats, titleFrom, type AiChat, type AiChatMessage } from "@/lib/ai-history";
+import { AnchoredMenu, AnchoredItem } from "@/components/ui/AnchoredMenu";
 import { cn } from "@/lib/utils";
 import type { AiAction, Profile } from "@/types";
 
@@ -22,6 +24,7 @@ export function OasisHelper({ profile }: { profile: Profile }) {
   const [input, setInput] = useState("");
   const [pendingImages, setPendingImages] = useState<string[]>([]);
   const [thinking, setThinking] = useState(false);
+  const [menu, setMenu] = useState<{ id: string; rect: DOMRect } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeChat = chats.find((c) => c.id === activeId) ?? null;
@@ -84,12 +87,22 @@ export function OasisHelper({ profile }: { profile: Profile }) {
   };
 
   const deleteChat = (id: string) => {
+    setMenu(null);
     setChats((prev) => {
       const next = prev.filter((c) => c.id !== id);
       saveChats(profile.id, next);
       return next;
     });
     if (activeId === id) newChat();
+  };
+
+  const togglePin = (id: string) => {
+    setMenu(null);
+    setChats((prev) => {
+      const next = sortChats(prev.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c)));
+      saveChats(profile.id, next);
+      return next;
+    });
   };
 
   return (
@@ -153,14 +166,38 @@ export function OasisHelper({ profile }: { profile: Profile }) {
                 {chats.length === 0 ? (
                   <p className="px-2 py-6 text-center text-xs text-fg-muted">Пока нет сохранённых чатов.</p>
                 ) : (
-                  chats.map((c) => (
-                    <div key={c.id} className="group flex items-center gap-1 rounded-xl px-1 transition hover:bg-[var(--panel)]">
-                      <button onClick={() => { setOpen(false); router.push(`/ai?chat=${c.id}`); }} className="flex-1 truncate px-2 py-2 text-left text-sm">{c.title}</button>
-                      <button onClick={() => deleteChat(c.id)} aria-label="Delete" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-fg-muted opacity-0 transition hover:text-danger group-hover:opacity-100">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))
+                  chats.map((c) => {
+                    const last = c.messages[c.messages.length - 1];
+                    const preview = last ? `${last.role === "user" ? "You: " : ""}${last.content}` : "Empty chat";
+                    return (
+                      <div
+                        key={c.id}
+                        className="group flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2.5 transition hover:bg-[var(--panel)]"
+                        onClick={() => { setOpen(false); router.push(`/ai?chat=${c.id}`); }}
+                      >
+                        <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", c.pinned ? "bg-accent/15 text-accent" : "bg-[var(--panel)] text-fg-muted")}>
+                          {c.pinned ? <Pin className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="flex-1 truncate text-[15px] font-semibold leading-tight">{c.title}</p>
+                            <span className="shrink-0 font-mono text-[10px] text-fg-muted">
+                              {formatDistanceToNow(new Date(c.updatedAt), { addSuffix: false })}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-fg-muted">{preview}</p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="Chat options"
+                          onClick={(e) => { e.stopPropagation(); setMenu({ id: c.id, rect: e.currentTarget.getBoundingClientRect() }); }}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-fg-muted opacity-100 transition hover:bg-bg-elev hover:text-accent lg:opacity-0 lg:group-hover:opacity-100"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             ) : (
@@ -237,6 +274,23 @@ export function OasisHelper({ profile }: { profile: Profile }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* history-item menu — minimalist, same feel as the chat message menu */}
+      <AnchoredMenu open={!!menu} anchor={menu?.rect ?? null} onClose={() => setMenu(null)} width={190}>
+        {menu && (() => {
+          const chat = chats.find((c) => c.id === menu.id);
+          return (
+            <>
+              <AnchoredItem
+                icon={chat?.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                label={chat?.pinned ? "Unpin" : "Pin to top"}
+                onClick={() => togglePin(menu.id)}
+              />
+              <AnchoredItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => deleteChat(menu.id)} />
+            </>
+          );
+        })()}
+      </AnchoredMenu>
     </>
   );
 }

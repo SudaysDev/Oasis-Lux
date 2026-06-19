@@ -90,24 +90,34 @@ export function TransactionsView() {
         </div>
         <div className="mt-5 flex h-40 items-end justify-between gap-3">
           {months.map((m) => (
-            <div key={m.key} className="flex flex-1 flex-col items-center gap-2">
+            <div key={m.key} className="group relative flex flex-1 flex-col items-center gap-2">
+              {/* styled hover tooltip — replaces the browser's default title bubble */}
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 -translate-y-1 whitespace-nowrap rounded-xl border border-[var(--panel-border)] bg-bg-elev/95 px-3 py-2 text-xs opacity-0 shadow-[0_18px_40px_-16px_var(--accent-glow)] backdrop-blur-md transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100">
+                <p className="mb-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted">{m.label}</p>
+                <p className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-danger" /> Spent
+                  <span className="ml-auto pl-3 font-semibold tabular-nums">{money(m.spent)}</span>
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-success" /> Earned
+                  <span className="ml-auto pl-3 font-semibold tabular-nums">{money(m.earned)}</span>
+                </p>
+              </div>
               <div className="flex h-32 w-full items-end justify-center gap-1">
                 <motion.div
-                  className="w-3 rounded-t bg-danger/70"
+                  className="w-3 rounded-t bg-danger/70 transition-colors group-hover:bg-danger"
                   initial={{ height: 0 }}
                   animate={{ height: `${(m.spent / maxMonth) * 100}%` }}
                   transition={{ duration: 0.5 }}
-                  title={`Spent ${money(m.spent)}`}
                 />
                 <motion.div
-                  className="w-3 rounded-t bg-success/70"
+                  className="w-3 rounded-t bg-success/70 transition-colors group-hover:bg-success"
                   initial={{ height: 0 }}
                   animate={{ height: `${(m.earned / maxMonth) * 100}%` }}
                   transition={{ duration: 0.5, delay: 0.05 }}
-                  title={`Earned ${money(m.earned)}`}
                 />
               </div>
-              <span className="font-mono text-[10px] uppercase text-fg-muted">{m.label}</span>
+              <span className="font-mono text-[10px] uppercase text-fg-muted transition-colors group-hover:text-accent">{m.label}</span>
             </div>
           ))}
         </div>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Crown, ImagePlus, Loader2, X } from "lucide-react";
+import { Cake, Camera, Crown, ImagePlus, Link2, Loader2, Plus, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { updateProfile, uploadMedia } from "@/lib/data/profile-mutations";
@@ -11,7 +11,7 @@ import { SOCIAL_ORDER, SOCIAL_META } from "@/lib/auth/shared";
 import { SOCIAL_ICONS } from "@/components/auth/BrandIcons";
 import { Avatar } from "./Avatar";
 import { PlanBadge } from "./Badges";
-import type { Profile, Socials } from "@/types";
+import type { Profile, ProfileLink, Socials } from "@/types";
 
 const PLAN_LABEL: Record<Profile["plan"], string> = {
   free: "Free plan",
@@ -32,6 +32,8 @@ export function EditProfileModal({
 }) {
   const [fullName, setFullName] = useState(profile.fullName);
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [birthday, setBirthday] = useState(profile.birthday ?? "");
+  const [links, setLinks] = useState<ProfileLink[]>(profile.links ?? []);
   const [socials, setSocials] = useState<Socials>(profile.socials);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -57,15 +59,20 @@ export function EditProfileModal({
       if (avatarFile) avatarUrl = await uploadMedia(sb, profile.id, avatarFile, "avatar");
       if (bannerFile) bannerUrl = await uploadMedia(sb, profile.id, bannerFile, "banner");
 
+      const cleanLinks = links
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.url);
       const patch = {
         fullName: fullName.trim(),
         bio: bio.trim(),
         socials,
         avatarUrl,
         bannerUrl,
+        birthday: birthday || null,
+        links: cleanLinks,
       };
       await updateProfile(sb, profile.id, patch);
-      onSaved(patch);
+      onSaved({ ...patch, birthday: birthday || undefined });
       toast.success("Profile updated");
       onClose();
     } catch {
@@ -123,6 +130,45 @@ export function EditProfileModal({
                 <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-fg-muted">Bio</span>
                 <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={2} placeholder="Tell buyers about yourself…" className="field w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none" />
               </label>
+
+              <label className="mt-3 block">
+                <span className="mb-1.5 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"><Cake className="h-3.5 w-3.5" /> Birthday</span>
+                <div className="field flex items-center gap-2 rounded-xl px-3 py-2">
+                  <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className="w-full bg-transparent text-sm outline-none [color-scheme:dark]" />
+                  {birthday && <button type="button" onClick={() => setBirthday("")} aria-label="Clear" className="shrink-0 text-fg-muted hover:text-danger"><X className="h-4 w-4" /></button>}
+                </div>
+              </label>
+
+              <div className="mt-4">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted"><Link2 className="h-3.5 w-3.5" /> Links</span>
+                  <button type="button" onClick={() => setLinks((l) => [...l, { label: "", url: "" }])} className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-accent transition hover:underline">
+                    <Plus className="h-3 w-3" /> Add link
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {links.length === 0 && <p className="text-[11px] text-fg-muted">Add a website, GitHub, portfolio — anything.</p>}
+                  {links.map((l, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        value={l.label}
+                        onChange={(e) => setLinks((arr) => arr.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                        placeholder="Label"
+                        className="field w-24 shrink-0 rounded-xl px-2.5 py-2 text-sm outline-none"
+                      />
+                      <input
+                        value={l.url}
+                        onChange={(e) => setLinks((arr) => arr.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
+                        placeholder="https://…"
+                        className="field w-full rounded-xl px-3 py-2 text-sm outline-none"
+                      />
+                      <button type="button" onClick={() => setLinks((arr) => arr.filter((_, j) => j !== i))} aria-label="Remove link" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-fg-muted transition hover:text-danger">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               <p className="mb-1.5 mt-4 font-mono text-[10px] uppercase tracking-wider text-fg-muted">Plan</p>
               <div className="field flex items-center justify-between rounded-xl px-3 py-2.5">

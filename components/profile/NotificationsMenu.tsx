@@ -3,12 +3,23 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
+import toast from "react-hot-toast";
 import { Bell, Bot, MessageSquare, Package, Star, Ticket } from "lucide-react";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { isMuted } from "@/lib/saved-media";
 import { loadNotifications, markAllNotificationsRead } from "@/lib/data/profile-mutations";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import type { AppNotification, NotificationType } from "@/types";
+
+interface NotifRow {
+  id: string; user_id: string; type: NotificationType; title: string;
+  body: string; data: Record<string, unknown> | null; read: boolean; created_at: string;
+}
+const mapRow = (r: NotifRow): AppNotification => ({
+  id: r.id, userId: r.user_id, type: r.type, title: r.title,
+  body: r.body, data: r.data ?? undefined, read: r.read, createdAt: r.created_at,
+});
 
 const ICON: Record<NotificationType, typeof Bell> = {
   order: Package,
@@ -29,12 +40,30 @@ export function NotificationsMenu() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
+    const sb = getBrowserClient();
     void (async () => {
-      const list = await loadNotifications(getBrowserClient(), userId);
+      const list = await loadNotifications(sb, userId);
       if (!cancelled) setItems(list);
     })();
+
+    // live: new notifications arrive without a refresh + a quick toast
+    const ch = sb
+      .channel(`notif:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        (payload) => {
+          const n = mapRow(payload.new as NotifRow);
+          setItems((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
+          const from = typeof n.data?.fromId === "string" ? n.data.fromId : null;
+          if (!(from && isMuted(userId, from))) toast(n.title, { icon: "🔔" }); // muted → no popup
+        },
+      )
+      .subscribe();
+
     return () => {
       cancelled = true;
+      void sb.removeChannel(ch);
     };
   }, [userId]);
 

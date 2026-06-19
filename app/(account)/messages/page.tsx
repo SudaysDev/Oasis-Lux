@@ -12,7 +12,7 @@ export default async function MessagesPage() {
   const sb = await createClient();
   const conversations = await fetchConversations(sb, profile.id);
   return (
-    <DashboardShell profile={profile}>
+    <DashboardShell profile={profile} flush>
       <MessagesView meId={profile.id} initial={conversations} />
     </DashboardShell>
   );

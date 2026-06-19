@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ChevronDown, ChevronLeft, ChevronRight, Clock, Flame, Glasses, LayoutGrid, Palette, Radio,
+  Ruler, Search, Shapes, SlidersHorizontal, SprayCan, Star, Tag, Wallet, Watch, X,
+} from "lucide-react";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { fetchCategories, groupCategories, type Category } from "@/lib/data/categories";
 import { useLiveProducts } from "@/hooks/useLiveProducts";
@@ -12,6 +15,7 @@ import { SELL_COLORS } from "@/lib/sell-data";
 import { useMoney } from "@/hooks/useMoney";
 import { cn } from "@/lib/utils";
 import type { DemoProduct } from "@/lib/landing-data";
+import type { ProductType } from "@/types";
 
 type Sort = "newest" | "oldest" | "price_asc" | "price_desc" | "popular" | "rating";
 const SORTS: { key: Sort; label: string }[] = [
@@ -27,20 +31,43 @@ const CONDITIONS = [
   { key: "like_new", label: "Like new" },
   { key: "used", label: "Used" },
 ] as const;
+// Product types with a hinting icon (perfume / watch / eyewear).
+const TYPE_META: { key: ProductType; label: string; Icon: typeof Watch }[] = [
+  { key: "perfume", label: "Perfume", Icon: SprayCan },
+  { key: "watch", label: "Watches", Icon: Watch },
+  { key: "glasses", label: "Eyewear", Icon: Glasses },
+];
 const PRICE_MAX = 5000;
 const PAGE_SIZE = 12;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const isRecent = (iso?: string) => !!iso && Date.now() - new Date(iso).getTime() < WEEK_MS;
 
 const toggle = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
-function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Section({ title, icon, children, action }: { title: string; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="border-t border-[var(--panel-border)] pt-4">
       <div className="mb-2 flex items-center justify-between">
-        <p className="font-mono text-[10px] uppercase tracking-wider text-fg-muted">{title}</p>
+        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-muted">
+          {icon && <span className="text-accent">{icon}</span>}
+          {title}
+        </p>
         {action}
       </div>
       {children}
     </div>
+  );
+}
+
+function Chip({ on, onClick, icon, children }: { on: boolean; onClick: () => void; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn("flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition", on ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}
+    >
+      {icon}
+      {children}
+    </button>
   );
 }
 
@@ -51,6 +78,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
   const [q, setQ] = useState(initialQ);
   const [brandQ, setBrandQ] = useState("");
   const [selCats, setSelCats] = useState<string[]>(initialCat ? [initialCat] : []);
+  const [selTypes, setSelTypes] = useState<string[]>([]);
   const [selBrands, setSelBrands] = useState<string[]>([]);
   const [selColors, setSelColors] = useState<string[]>([]);
   const [selSizes, setSelSizes] = useState<string[]>([]);
@@ -58,6 +86,9 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
   const [price, setPrice] = useState<[number, number]>([0, PRICE_MAX]);
   const [inStock, setInStock] = useState(false);
   const [dealsOnly, setDealsOnly] = useState(false);
+  const [topRated, setTopRated] = useState(false);
+  const [newOnly, setNewOnly] = useState(false);
+  const [liveOnly, setLiveOnly] = useState(false);
   const [sort, setSort] = useState<Sort>("newest");
   const [sortOpen, setSortOpen] = useState(false);
   const [page, setPage] = useState(1);
@@ -67,12 +98,19 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
   const groups = useMemo(() => groupCategories(cats), [cats]);
   const brands = useMemo(() => Array.from(new Set(products.map((p) => p.brand).filter((b) => b && b !== "—"))).sort(), [products]);
   const sizes = useMemo(() => Array.from(new Set(products.map((p) => p.size).filter(Boolean) as string[])).sort(), [products]);
+  // Trending tags: most-used listing tags surfaced as quick chips above the grid.
+  const popularTags = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const p of products) for (const t of p.tags ?? []) count.set(t, (count.get(t) ?? 0) + 1);
+    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
+  }, [products]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     const list = products.filter((p) => {
       if (term && !(p.title.toLowerCase().includes(term) || p.brand.toLowerCase().includes(term) || p.tags?.some((t) => t.toLowerCase().includes(term)))) return false;
       if (selCats.length && !p.tags?.some((t) => selCats.some((c) => c.toLowerCase() === t.toLowerCase()))) return false;
+      if (selTypes.length && !selTypes.includes(p.type)) return false;
       if (selBrands.length && !selBrands.includes(p.brand)) return false;
       if (selColors.length && !p.colors?.some((c) => selColors.some((s) => s.toLowerCase() === c.toLowerCase()))) return false;
       if (selSizes.length && !(p.size && selSizes.includes(p.size))) return false;
@@ -80,6 +118,9 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
       if (p.price < price[0] || p.price > price[1]) return false;
       if (inStock && p.stock <= 0) return false;
       if (dealsOnly && !p.discount) return false;
+      if (topRated && p.rating < 4.5) return false;
+      if (newOnly && !isRecent(p.createdAt)) return false;
+      if (liveOnly && !p.isLive) return false;
       return true;
     });
     return [...list].sort((a, b) => {
@@ -92,16 +133,20 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
         default: return (b.isLive ? 1 : 0) - (a.isLive ? 1 : 0) || (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
       }
     });
-  }, [products, q, selCats, selBrands, selColors, selSizes, selConditions, price, inStock, dealsOnly, sort]);
+  }, [products, q, selCats, selTypes, selBrands, selColors, selSizes, selConditions, price, inStock, dealsOnly, topRated, newOnly, liveOnly, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const activeFilters = selCats.length + selBrands.length + selColors.length + selSizes.length + selConditions.length + (inStock ? 1 : 0) + (dealsOnly ? 1 : 0) + (price[0] > 0 || price[1] < PRICE_MAX ? 1 : 0);
+  const activeFilters =
+    selCats.length + selTypes.length + selBrands.length + selColors.length + selSizes.length + selConditions.length +
+    (inStock ? 1 : 0) + (dealsOnly ? 1 : 0) + (topRated ? 1 : 0) + (newOnly ? 1 : 0) + (liveOnly ? 1 : 0) +
+    (price[0] > 0 || price[1] < PRICE_MAX ? 1 : 0);
   const resetAll = () => {
-    setSelCats([]); setSelBrands([]); setSelColors([]); setSelSizes([]); setSelConditions([]);
-    setPrice([0, PRICE_MAX]); setInStock(false); setDealsOnly(false); setQ(""); setPage(1);
+    setSelCats([]); setSelTypes([]); setSelBrands([]); setSelColors([]); setSelSizes([]); setSelConditions([]);
+    setPrice([0, PRICE_MAX]); setInStock(false); setDealsOnly(false); setTopRated(false); setNewOnly(false); setLiveOnly(false);
+    setQ(""); setPage(1);
   };
   const onFilter = (fn: () => void) => { fn(); setPage(1); };
   const filteredBrands = brands.filter((b) => b.toLowerCase().includes(brandQ.trim().toLowerCase()));
@@ -118,7 +163,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         {/* FILTERS — left column */}
-        <aside className="card h-max space-y-4 rounded-2xl p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
+        <aside className="card no-scrollbar h-max space-y-4 rounded-2xl p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div className="flex items-center justify-between">
             <p className="text-sm font-bold">Filters {activeFilters > 0 && <span className="text-accent">· {activeFilters}</span>}</p>
             {activeFilters > 0 && <button onClick={resetAll} className="font-mono text-[10px] uppercase tracking-wider text-fg-muted transition hover:text-danger">Reset all</button>}
@@ -131,30 +176,58 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
           </div>
 
           {/* PRICE */}
-          <Section title={`Price · ${money(price[0])} – ${money(price[1])}`}>
+          <Section title={`Price · ${money(price[0])} – ${money(price[1])}`} icon={<Wallet className="h-3.5 w-3.5" />}>
             <PriceRange min={0} max={PRICE_MAX} value={price} onChange={(v) => onFilter(() => setPrice(v))} />
           </Section>
 
+          {/* TYPE — top-level product kind with hinting icons */}
+          <Section title="Type" icon={<Shapes className="h-3.5 w-3.5" />}>
+            <div className="grid grid-cols-3 gap-1.5">
+              {TYPE_META.map(({ key, label, Icon }) => {
+                const on = selTypes.includes(key);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => onFilter(() => setSelTypes((a) => toggle(a, key)))}
+                    className={cn("flex flex-col items-center gap-1 rounded-xl border py-2 text-[11px] font-medium transition", on ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+
           {/* STATUS toggles */}
-          <Section title="Status">
+          <Section title="Status" icon={<Radio className="h-3.5 w-3.5" />}>
             <div className="flex flex-wrap gap-1.5">
-              <button onClick={() => onFilter(() => setDealsOnly((v) => !v))} className={cn("rounded-full border px-2.5 py-1 text-xs transition", dealsOnly ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>Discounts</button>
-              <button onClick={() => onFilter(() => setInStock((v) => !v))} className={cn("rounded-full border px-2.5 py-1 text-xs transition", inStock ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>In stock</button>
+              <Chip on={dealsOnly} onClick={() => onFilter(() => setDealsOnly((v) => !v))} icon={<Flame className="h-3 w-3" />}>Discounts</Chip>
+              <Chip on={inStock} onClick={() => onFilter(() => setInStock((v) => !v))}>In stock</Chip>
+              <Chip on={topRated} onClick={() => onFilter(() => setTopRated((v) => !v))} icon={<Star className="h-3 w-3" />}>Top rated</Chip>
+              <Chip on={newOnly} onClick={() => onFilter(() => setNewOnly((v) => !v))} icon={<Clock className="h-3 w-3" />}>New this week</Chip>
+              <Chip on={liveOnly} onClick={() => onFilter(() => setLiveOnly((v) => !v))} icon={<Radio className="h-3 w-3" />}>Live now</Chip>
               {CONDITIONS.map((c) => (
-                <button key={c.key} onClick={() => onFilter(() => setSelConditions((a) => toggle(a, c.key)))} className={cn("rounded-full border px-2.5 py-1 text-xs transition", selConditions.includes(c.key) ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>{c.label}</button>
+                <Chip key={c.key} on={selConditions.includes(c.key)} onClick={() => onFilter(() => setSelConditions((a) => toggle(a, c.key)))}>{c.label}</Chip>
               ))}
             </div>
           </Section>
 
           {/* CATEGORIES */}
-          <Section title="Categories" action={selCats.length > 0 ? <button onClick={() => onFilter(() => setSelCats([]))} className="font-mono text-[10px] uppercase text-accent">Clear</button> : undefined}>
-            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          <Section title="Categories" icon={<LayoutGrid className="h-3.5 w-3.5" />} action={selCats.length > 0 ? <button onClick={() => onFilter(() => setSelCats([]))} className="font-mono text-[10px] uppercase text-accent">Clear</button> : undefined}>
+            <div className="no-scrollbar max-h-64 space-y-2 overflow-y-auto pr-1">
               {groups.map((g) => (
                 <div key={g.parent.id}>
-                  <button onClick={() => onFilter(() => setSelCats((a) => toggle(a, g.parent.name)))} className={cn("text-left text-xs font-semibold transition", selCats.includes(g.parent.name) ? "text-accent" : "text-fg hover:text-accent")}>{g.parent.name}</button>
+                  <button onClick={() => onFilter(() => setSelCats((a) => toggle(a, g.parent.name)))} className={cn("flex items-center gap-1.5 text-left text-xs font-semibold transition", selCats.includes(g.parent.name) ? "text-accent" : "text-fg hover:text-accent")}>
+                    {g.parent.icon && <span className="text-sm leading-none">{g.parent.icon}</span>}
+                    {g.parent.name}
+                  </button>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {g.children.map((c) => (
-                      <button key={c.id} onClick={() => onFilter(() => setSelCats((a) => toggle(a, c.name)))} className={cn("rounded-full border px-2 py-0.5 text-[11px] transition", selCats.includes(c.name) ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>{c.name}</button>
+                      <button key={c.id} onClick={() => onFilter(() => setSelCats((a) => toggle(a, c.name)))} className={cn("flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition", selCats.includes(c.name) ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>
+                        {c.icon && <span className="leading-none">{c.icon}</span>}
+                        {c.name}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -163,12 +236,12 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
           </Section>
 
           {/* BRANDS */}
-          <Section title="Brand">
+          <Section title="Brand" icon={<Tag className="h-3.5 w-3.5" />}>
             <div className="field mb-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 text-fg-muted" />
               <input value={brandQ} onChange={(e) => setBrandQ(e.target.value)} placeholder="Search brand…" className="w-full bg-transparent text-xs outline-none" />
             </div>
-            <div className="max-h-40 space-y-0.5 overflow-y-auto pr-1">
+            <div className="no-scrollbar max-h-40 space-y-0.5 overflow-y-auto pr-1">
               {filteredBrands.map((b) => (
                 <label key={b} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs transition hover:bg-[var(--panel)]">
                   <input type="checkbox" checked={selBrands.includes(b)} onChange={() => onFilter(() => setSelBrands((a) => toggle(a, b)))} className="accent-[var(--accent)]" />
@@ -180,7 +253,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
           </Section>
 
           {/* COLORS */}
-          <Section title="Color">
+          <Section title="Color" icon={<Palette className="h-3.5 w-3.5" />}>
             <div className="flex flex-wrap gap-1.5">
               {SELL_COLORS.map((c) => {
                 const on = selColors.includes(c.name);
@@ -193,7 +266,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
 
           {/* SIZES / VOLUME */}
           {sizes.length > 0 && (
-            <Section title="Size / volume">
+            <Section title="Size / volume" icon={<Ruler className="h-3.5 w-3.5" />}>
               <div className="flex flex-wrap gap-1.5">
                 {sizes.map((s) => (
                   <button key={s} onClick={() => onFilter(() => setSelSizes((a) => toggle(a, s)))} className={cn("rounded-lg border px-2.5 py-1 text-xs transition", selSizes.includes(s) ? "neon-border text-accent" : "border-[var(--panel-border)] text-fg-muted hover:text-fg")}>{s}</button>
@@ -205,6 +278,16 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
 
         {/* GRID */}
         <div>
+          {/* trending tags — quick chips that filter by listing tag */}
+          {popularTags.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted"><Flame className="h-3.5 w-3.5 text-accent" /> Trending</span>
+              {popularTags.map((tg) => (
+                <Chip key={tg} on={selCats.some((c) => c.toLowerCase() === tg.toLowerCase())} onClick={() => onFilter(() => setSelCats((a) => toggle(a, tg)))}>{tg}</Chip>
+              ))}
+            </div>
+          )}
+
           {/* sort bar — right side, above the grid */}
           <div className="mb-4 flex items-center justify-end gap-2">
             <span className="mr-auto text-xs text-fg-muted">{filtered.length} результатов</span>

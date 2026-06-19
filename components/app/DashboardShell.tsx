@@ -19,7 +19,17 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types";
 
-export function DashboardShell({ profile, children }: { profile: Profile; children: ReactNode }) {
+export function DashboardShell({
+  profile,
+  children,
+  flush = false,
+}: {
+  profile: Profile;
+  children: ReactNode;
+  /** Full-bleed mode: no main padding, viewport-locked height, no page scroll,
+      no floating helper. Used by chrome-like pages (e.g. Messages). */
+  flush?: boolean;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
   const { count: cartCount } = useCart();
@@ -60,8 +70,19 @@ export function DashboardShell({ profile, children }: { profile: Profile; childr
         )}
       </AnimatePresence>
 
-      <div className={cn("relative z-10 transition-all", sidebarOpen ? "lg:pl-60" : "lg:pl-[72px]")}>
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[var(--panel-border)] bg-bg/70 px-5 py-3 backdrop-blur-xl sm:px-8">
+      <div
+        className={cn(
+          "relative z-10 transition-all",
+          sidebarOpen ? "lg:pl-60" : "lg:pl-[72px]",
+          flush && "flex h-dvh flex-col overflow-hidden",
+        )}
+      >
+        <header
+          className={cn(
+            "z-30 flex items-center justify-between gap-3 border-b border-[var(--panel-border)] bg-bg/70 px-5 py-3 backdrop-blur-xl sm:px-8",
+            flush ? "shrink-0" : "sticky top-0",
+          )}
+        >
           <div className="flex flex-1 items-center gap-3">
             <button
               type="button"
@@ -105,10 +126,10 @@ export function DashboardShell({ profile, children }: { profile: Profile; childr
           </div>
         </header>
 
-        <main className="px-5 pb-24 pt-6 sm:px-8">{children}</main>
+        <main className={flush ? "min-h-0 flex-1 overflow-hidden" : "px-5 pb-24 pt-6 sm:px-8"}>{children}</main>
       </div>
 
-      <OasisHelper profile={profile} />
+      {!flush && <OasisHelper profile={profile} />}
     </div>
   );
 }

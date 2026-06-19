@@ -16,7 +16,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
     fetchPeerMini(sb, id),
   ]);
   return (
-    <DashboardShell profile={profile}>
+    <DashboardShell profile={profile} flush>
       <MessagesView meId={profile.id} initial={conversations} activePeerId={id} activePeer={peer ?? undefined} />
     </DashboardShell>
   );

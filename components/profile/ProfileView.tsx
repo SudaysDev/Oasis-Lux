@@ -4,18 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { Calendar, MessageSquare, Package, Pencil, ShoppingCart, Star, TrendingUp, Wallet } from "lucide-react";
+import toast from "react-hot-toast";
+import { Cake, Calendar, Check, Copy, Flag, Link as LinkIcon, MessageSquare, Package, Pencil, ShoppingCart, Star, TrendingUp, Wallet } from "lucide-react";
 import { Avatar } from "./Avatar";
 import { PlanBadge, VerifiedBadge } from "./Badges";
 import { StarRating } from "./StarRating";
 import { UserSells } from "./UserSells";
 import { ReviewsSection } from "./ReviewsSection";
 import { EditProfileModal } from "./EditProfileModal";
+import { ReportModal } from "@/components/messages/ReportModal";
 import { SOCIAL_ORDER, SOCIAL_META } from "@/lib/auth/shared";
 import { SOCIAL_ICONS } from "@/components/auth/BrandIcons";
+import { useT } from "@/hooks/useT";
 import { formatPrice, formatTjPhone } from "@/lib/utils";
 import type { ProfileBundle } from "@/lib/data/profile";
-import type { Profile } from "@/types";
+import type { MiniProfile, Profile } from "@/types";
 
 function StatTile({ icon: Icon, label, value }: { icon: typeof Star; label: string; value: string }) {
   return (
@@ -28,11 +31,34 @@ function StatTile({ icon: Icon, label, value }: { icon: typeof Star; label: stri
 }
 
 export function ProfileView({ bundle }: { bundle: ProfileBundle }) {
-  const { stats, products, reviews, isMe } = bundle;
+  const { stats, products, reviews, isMe, viewerId } = bundle;
+  const { t } = useT();
   const [profile, setProfile] = useState<Profile>(bundle.profile);
   const [editing, setEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const onSaved = (patch: Partial<Profile>) => setProfile((p) => ({ ...p, ...patch }));
+
+  const copyUsername = () => {
+    void navigator.clipboard
+      .writeText(`@${profile.username}`)
+      .then(() => {
+        setCopied(true);
+        toast.success(t("profile.usernameCopied"));
+        window.setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => toast.error("Copy failed"));
+  };
+
+  const peer: MiniProfile = {
+    id: profile.id,
+    username: profile.username,
+    fullName: profile.fullName,
+    avatarUrl: profile.avatarUrl,
+    plan: profile.plan,
+    isVerified: profile.isVerified,
+  };
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -60,7 +86,15 @@ export function ProfileView({ bundle }: { bundle: ProfileBundle }) {
                 {profile.isVerified && <VerifiedBadge className="h-5 w-5" />}
                 <PlanBadge plan={profile.plan} />
               </div>
-              <p className="font-mono text-xs text-fg-muted">@{profile.username}</p>
+              <button
+                type="button"
+                onClick={copyUsername}
+                title={t("profile.copyUsername")}
+                className="group flex items-center gap-1.5 font-mono text-xs text-fg-muted transition hover:text-accent"
+              >
+                @{profile.username}
+                {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />}
+              </button>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted">
                 <span className="flex items-center gap-1">
                   <StarRating value={stats.rating} size={13} /> {stats.rating > 0 ? stats.rating.toFixed(1) : "New"}
@@ -86,17 +120,52 @@ export function ProfileView({ bundle }: { bundle: ProfileBundle }) {
                 <Pencil className="h-4 w-4" /> Edit profile
               </button>
             ) : (
-              <Link
-                href={`/messages/${profile.id}`}
-                className="neon-border flex items-center gap-2 rounded-full bg-gradient-to-r from-accent/25 to-accent-2/25 px-5 py-2.5 text-sm font-medium transition hover:from-accent/40 hover:to-accent-2/40"
-              >
-                <MessageSquare className="h-4 w-4" /> Message
-              </Link>
+              <>
+                <Link
+                  href={`/messages/${profile.id}`}
+                  className="neon-border flex items-center gap-2 rounded-full bg-gradient-to-r from-accent/25 to-accent-2/25 px-5 py-2.5 text-sm font-medium transition hover:from-accent/40 hover:to-accent-2/40"
+                >
+                  <MessageSquare className="h-4 w-4" /> Message
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setReporting(true)}
+                  title={t("profile.report")}
+                  className="flex items-center gap-2 rounded-full border border-[var(--panel-border)] px-4 py-2.5 text-sm font-medium text-fg-muted transition hover:border-danger/50 hover:text-danger"
+                >
+                  <Flag className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t("profile.report")}</span>
+                </button>
+              </>
             )}
           </div>
         </div>
 
         {profile.bio && <p className="mt-4 max-w-2xl text-sm leading-relaxed text-fg-muted">{profile.bio}</p>}
+
+        {/* birthday + custom links */}
+        {(profile.birthday || profile.links.length > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {profile.birthday && (
+              <span className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-fg-muted">
+                <Cake className="h-3.5 w-3.5 text-accent" />
+                {format(new Date(profile.birthday), "d MMMM yyyy")}
+              </span>
+            )}
+            {profile.links.map((l, i) => (
+              <a
+                key={i}
+                href={/^https?:\/\//.test(l.url) ? l.url : `https://${l.url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-accent transition hover:neon-border"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                {l.label || l.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+              </a>
+            ))}
+          </div>
+        )}
 
         {/* socials */}
         {Object.keys(profile.socials).length > 0 && (
@@ -142,6 +211,9 @@ export function ProfileView({ bundle }: { bundle: ProfileBundle }) {
       </div>
 
       {isMe && <EditProfileModal open={editing} onClose={() => setEditing(false)} profile={profile} onSaved={onSaved} />}
+      {!isMe && viewerId && (
+        <ReportModal open={reporting} onClose={() => setReporting(false)} meId={viewerId} peer={peer} />
+      )}
     </div>
   );
 }

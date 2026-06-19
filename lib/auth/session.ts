@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Locale, Profile, Role, Socials, Theme } from "@/types";
+import type { Locale, Profile, ProfileLink, Role, Socials, Theme } from "@/types";
 
 interface ProfileRow {
   id: string;
@@ -13,6 +13,8 @@ interface ProfileRow {
   phone: string;
   role: Role;
   socials: Socials | null;
+  birthday: string | null;
+  links: ProfileLink[] | null;
   telegram_chat_id: string | null;
   loyalty_tier: Profile["loyaltyTier"];
   loyalty_points: number | null;
@@ -22,6 +24,7 @@ interface ProfileRow {
   bio: string | null;
   plan: Profile["plan"] | null;
   is_verified: boolean | null;
+  show_phone: boolean | null;
   created_at: string;
 }
 
@@ -35,6 +38,8 @@ export function mapProfileRow(r: ProfileRow): Profile {
     phone: r.phone,
     role: r.role,
     socials: r.socials ?? {},
+    birthday: r.birthday ?? undefined,
+    links: Array.isArray(r.links) ? r.links : [],
     telegramChatId: r.telegram_chat_id ?? undefined,
     loyaltyTier: r.loyalty_tier,
     loyaltyPoints: r.loyalty_points ?? 0,
@@ -44,6 +49,7 @@ export function mapProfileRow(r: ProfileRow): Profile {
     bio: r.bio ?? undefined,
     plan: r.plan ?? "free",
     isVerified: r.is_verified ?? false,
+    showPhone: r.show_phone ?? false,
     createdAt: r.created_at,
   };
 }

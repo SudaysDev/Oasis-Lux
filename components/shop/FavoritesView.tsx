@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowDownUp, ArrowRight, Heart, Loader2, ShoppingBag, Trash2 } from "lucide-react";
+import { ArrowDownUp, ArrowRight, Check, ChevronDown, Heart, Loader2, ShoppingBag, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCart } from "@/hooks/useCart";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useLiveProducts } from "@/hooks/useLiveProducts";
 import { useT } from "@/hooks/useT";
 import { cn } from "@/lib/utils";
+import { AnchoredMenu } from "@/components/ui/AnchoredMenu";
 import { ProductCard } from "@/components/shop/ProductCard";
 import type { DemoProduct } from "@/lib/landing-data";
 import type { ProductType } from "@/types";
@@ -33,6 +34,7 @@ export function FavoritesView() {
 
   const [clearing, setClearing] = useState(false);
   const [sort, setSort] = useState<Sort>("recent");
+  const [sortAnchor, setSortAnchor] = useState<DOMRect | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
   // resolve favorite ids → products (newest first: ids append on add)
@@ -155,20 +157,35 @@ export function FavoritesView() {
               </button>
             ))}
           </div>
-          <label className="card flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
+          <button
+            type="button"
+            onClick={(e) => setSortAnchor(e.currentTarget.getBoundingClientRect())}
+            aria-haspopup="listbox"
+            aria-expanded={!!sortAnchor}
+            className="card flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition hover:neon-border"
+          >
             <ArrowDownUp className="h-4 w-4 text-fg-muted" />
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as Sort)}
-              className="bg-transparent font-medium outline-none"
-            >
-              {SORTS.map((s) => (
-                <option key={s.key} value={s.key} className="bg-bg-elev text-fg">
-                  {t(s.tkey)}
-                </option>
-              ))}
-            </select>
-          </label>
+            {t(SORTS.find((s) => s.key === sort)!.tkey)}
+            <ChevronDown className={cn("h-4 w-4 text-fg-muted transition-transform", sortAnchor && "rotate-180")} />
+          </button>
+          <AnchoredMenu open={!!sortAnchor} anchor={sortAnchor} onClose={() => setSortAnchor(null)} align="right" width={220}>
+            {SORTS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                role="option"
+                aria-selected={sort === s.key}
+                onClick={() => setSort(s.key)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left text-sm font-medium transition hover:bg-[var(--panel)]",
+                  sort === s.key ? "text-accent" : "text-fg",
+                )}
+              >
+                {t(s.tkey)}
+                {sort === s.key && <Check className="h-4 w-4 shrink-0" />}
+              </button>
+            ))}
+          </AnchoredMenu>
         </div>
       )}
 

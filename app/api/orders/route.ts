@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CANCEL_WINDOW_MIN, HUB, makeCourier, regionFee, regionLogistics, type OrderLine } from "@/lib/data/orders";
+import { getOrCreateConversation, sendMessage } from "@/lib/data/messages";
 import { findPromo, promoDiscount, promoMatchesProduct } from "@/lib/promo-codes";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -123,17 +124,18 @@ export async function POST(req: Request) {
 
   // notify the seller (best-effort, service role bypasses RLS)
   if (body.sellerId) {
-    void pingSeller(body.sellerId, body.fullName.trim(), items, total, orderId).catch(() => {});
+    void pingSeller(body.sellerId, user.id, body.fullName.trim(), items, total, orderId).catch(() => {});
   }
 
   return NextResponse.json({ id: orderId });
 }
 
-async function pingSeller(sellerId: string, buyer: string, items: OrderLine[], total: number, orderId: string) {
+async function pingSeller(sellerId: string, buyerId: string, buyer: string, items: OrderLine[], total: number, orderId: string) {
   const admin = createAdminClient();
   const units = items.reduce((n, i) => n + i.quantity, 0);
-  const list = items.map((i) => `• ${i.title} ×${i.quantity}`).join("\n");
+  const list = items.map((i) => `• ${i.title} ×${i.quantity} — ${i.unitPrice * i.quantity} смн`).join("\n");
   const summary = `${buyer} ordered ${units} item${units > 1 ? "s" : ""} · ${total} смн`;
+  const full = `🛍 New order\n${summary}\n${list}\nOrder #${orderId.slice(0, 8)}`;
 
   // read the seller's linked socials so we can fan out / record intended channels
   const { data: prof } = await admin
@@ -153,9 +155,19 @@ async function pingSeller(sellerId: string, buyer: string, items: OrderLine[], t
     data: { orderId, items: list, channels: Object.keys(socials) },
   });
 
-  // 2) Telegram DM — real, but only if the seller connected the bot (we have a chat id).
-  //    (Instagram/TikTok DMs require their paid/business APIs + opt-in, so we can't
-  //    truly send those for free — the in-app + Telegram alerts are the live channels.)
+  // 2) in-site chat message from the buyer to the seller (real message in our
+  //    own messenger — shows in both inboxes, like any DM).
+  if (buyerId && buyerId !== sellerId) {
+    try {
+      const convId = await getOrCreateConversation(admin, buyerId, sellerId);
+      await sendMessage(admin, convId, buyerId, sellerId, full);
+    } catch { /* best-effort */ }
+  }
+
+  // 3) Telegram DM — real, but only if the seller connected the bot (we have a chat id).
+  //    Instagram/TikTok/WhatsApp DMs require their paid/business APIs + recipient
+  //    opt-in, so they can't be auto-sent for free — in-app + chat + Telegram are
+  //    the live channels (the linked handles are recorded on the notification).
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = p?.telegram_chat_id;
   if (token && chatId) {

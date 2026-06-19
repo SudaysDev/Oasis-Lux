@@ -13,6 +13,14 @@ export interface AiChat {
   title: string;
   messages: AiChatMessage[];
   updatedAt: number;
+  pinned?: boolean;
+}
+
+/** Sort: pinned first, then most-recently updated. */
+export function sortChats(chats: AiChat[]): AiChat[] {
+  return [...chats].sort(
+    (a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.updatedAt - a.updatedAt,
+  );
 }
 
 const key = (userId: string) => `oasis-ai-chats:${userId}`;
@@ -22,7 +30,7 @@ export function loadChats(userId: string): AiChat[] {
     const raw = localStorage.getItem(key(userId));
     if (!raw) return [];
     const arr = JSON.parse(raw) as AiChat[];
-    return Array.isArray(arr) ? arr.sort((a, b) => b.updatedAt - a.updatedAt) : [];
+    return Array.isArray(arr) ? sortChats(arr) : [];
   } catch {
     return [];
   }

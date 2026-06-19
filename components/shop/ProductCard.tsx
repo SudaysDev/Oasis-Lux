@@ -107,7 +107,7 @@ export function ProductCard({ product, showVariants = false, requireAuth = false
         <Heart className={cn("h-4 w-4 transition-colors", fav ? "fill-danger text-danger" : "text-fg-muted")} />
       </button>
 
-      <Link href={`/product/${product.id}`} aria-label={product.title} className="block">
+      <Link href={`/product/${product.id}`} prefetch={false} aria-label={product.title} className="block">
         <div
           className={cn(
             "relative mx-auto h-40 w-full overflow-hidden rounded-xl transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-2",

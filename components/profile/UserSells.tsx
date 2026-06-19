@@ -84,21 +84,23 @@ export function UserSells({
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}
-                <div className="relative mx-auto h-32 w-full overflow-hidden rounded-xl transition-transform duration-500 group-hover:scale-105">
-                  {p.images.length > 0 ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.images[0]} alt={p.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <ProductArt type={p.type} uid={`us-${p.id}`} hue={p.hue} className="h-full w-full" />
-                  )}
-                </div>
-                <span className="mt-2 inline-flex w-fit rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-accent">
-                  {CONDITION_LABEL[p.condition]}
-                </span>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted">{p.brand || p.type}</p>
-                <h3 className="line-clamp-1 text-sm font-semibold">{p.title}</h3>
-                {p.color && <p className="text-xs text-fg-muted">{p.color}</p>}
-                <p className="mt-1 text-base font-black">{formatPrice(p.price)}</p>
+                <Link href={`/product/${p.id}`} className="flex flex-1 flex-col">
+                  <div className="relative mx-auto h-32 w-full overflow-hidden rounded-xl transition-transform duration-500 group-hover:scale-105">
+                    {p.images.length > 0 ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.images[0]} alt={p.title} className="h-full w-full object-cover" />
+                    ) : (
+                      <ProductArt type={p.type} uid={`us-${p.id}`} hue={p.hue} className="h-full w-full" />
+                    )}
+                  </div>
+                  <span className="mt-2 inline-flex w-fit rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-accent">
+                    {CONDITION_LABEL[p.condition]}
+                  </span>
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-fg-muted">{p.brand || p.type}</p>
+                  <h3 className="line-clamp-1 text-sm font-semibold">{p.title}</h3>
+                  {p.color && <p className="text-xs text-fg-muted">{p.color}</p>}
+                  <p className="mt-1 text-base font-black">{formatPrice(p.price)}</p>
+                </Link>
               </motion.div>
             ))}
           </AnimatePresence>

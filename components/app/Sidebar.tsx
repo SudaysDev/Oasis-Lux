@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -26,6 +27,7 @@ import { cn, formatTjPhone } from "@/lib/utils";
 import { Avatar } from "@/components/profile/Avatar";
 import { PlanBadge } from "@/components/profile/Badges";
 import { PromoStatus } from "@/components/app/PromoStatus";
+import { Modal } from "@/components/messages/overlays";
 import { useT } from "@/hooks/useT";
 import type { Profile } from "@/types";
 
@@ -47,6 +49,7 @@ export function Sidebar({ profile, onNavigate }: { profile: Profile; onNavigate?
   const open = useAppSelector((s) => s.ui.sidebarOpen);
   const dispatch = useAppDispatch();
   const { t } = useT();
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const items = profile.role === "admin" ? [...NAV, { key: "nav.admin", href: "/admin", icon: Shield }] : NAV;
 
@@ -119,20 +122,34 @@ export function Sidebar({ profile, onNavigate }: { profile: Profile; onNavigate?
           )}
         </Link>
 
-        <form action={logout}>
-          <button
-            type="submit"
-            title="Log out"
-            className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-fg-muted transition hover:bg-danger/10 hover:text-danger",
-              !open && "justify-center",
-            )}
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {open && <span className="text-sm">Log out</span>}
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={() => setConfirmLogout(true)}
+          title={t("menu.logout")}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-fg-muted transition hover:bg-danger/10 hover:text-danger",
+            !open && "justify-center",
+          )}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          {open && <span className="text-sm">{t("menu.logout")}</span>}
+        </button>
       </div>
+
+      {/* logout confirmation */}
+      <Modal open={confirmLogout} onClose={() => setConfirmLogout(false)} className="max-w-sm">
+        <div className="text-center">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-danger/10 text-danger"><LogOut className="h-6 w-6" /></div>
+          <h3 className="mt-3 text-lg font-bold">{t("menu.logout")}?</h3>
+          <p className="mt-1 text-sm text-fg-muted">You’ll need to sign in again to access your account.</p>
+          <div className="mt-5 flex gap-2">
+            <button type="button" onClick={() => setConfirmLogout(false)} className="flex-1 rounded-xl border border-[var(--panel-border)] px-4 py-2.5 text-sm font-semibold transition hover:bg-[var(--panel)]">Cancel</button>
+            <form action={logout} className="flex-1">
+              <button type="submit" className="w-full rounded-xl bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110">{t("menu.logout")}</button>
+            </form>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -20,13 +20,44 @@ type Props = {
   products: DemoProduct[];
   showVariants?: boolean;
   href?: string;
+  /** Pad a short list up to this many slides (with rotation) so the rail stays long & swipeable. */
+  minRail?: number;
 };
 
-export function ProductRow({ id, title, products, showVariants, href = "/catalog" }: Props) {
+/**
+ * Rail card sizing — comfortable, full-size cards (NOT shrunk). The "lots of stuff" feeling
+ * comes from rails that never end (endless swipe), not from cramming in tiny cards.
+ * Shared with the interstitial rails in the infinite feed.
+ */
+export const RAIL_SLIDES_PER_VIEW = 1.25;
+export const RAIL_SPACE_BETWEEN = 14;
+export const RAIL_BREAKPOINTS = {
+  640: { slidesPerView: 2.3 },
+  1024: { slidesPerView: 3.2 },
+  1280: { slidesPerView: 4.2 },
+};
+
+/** Repeat a short list (rotating the start each cycle) so a rail never ends after 2 swipes. */
+function lengthen<T>(list: T[], min: number): T[] {
+  if (list.length === 0 || list.length >= min) return list;
+  const out: T[] = [];
+  for (let k = 0; out.length < min; k++) {
+    const offset = (k * 3) % list.length;
+    for (let i = 0; i < list.length && out.length < min; i++) out.push(list[(i + offset) % list.length]!);
+  }
+  return out;
+}
+
+/** Hard ceiling on a single rail's slides so endless cycling never blows up the DOM. */
+const RAIL_MAX = 96;
+
+export function ProductRow({ id, title, products, showVariants, href = "/catalog", minRail = 22 }: Props) {
   const { t } = useT();
   const [swiper, setSwiper] = useState<SwiperClass | null>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
+  // grows each time the user swipes to the end → the rail keeps producing more cards (endless)
+  const [cap, setCap] = useState(minRail);
 
   // Simulated fetch so skeleton loaders genuinely show on first paint.
   const { data, isLoading } = useQuery({
@@ -34,7 +65,14 @@ export function ProductRow({ id, title, products, showVariants, href = "/catalog
     queryFn: () => new Promise<DemoProduct[]>((resolve) => setTimeout(() => resolve(products), 700)),
   });
 
-  const list = data ?? [];
+  const list = useMemo(() => lengthen(data ?? [], cap), [data, cap]);
+
+  const growIfNeeded = () => setCap((c) => Math.min(RAIL_MAX, c + minRail));
+
+  // recalc Swiper geometry after a batch is appended so the new cards become swipeable
+  useEffect(() => {
+    swiper?.update();
+  }, [swiper, list.length]);
 
   const sync = (sw: SwiperClass) => {
     setAtStart(sw.isBeginning);
@@ -89,22 +127,25 @@ export function ProductRow({ id, title, products, showVariants, href = "/catalog
           grabCursor
           mousewheel={{ forceToAxis: true }}
           scrollbar={{ draggable: true, hide: false }}
-          slidesPerView={1.25}
-          spaceBetween={14}
-          breakpoints={{ 640: { slidesPerView: 2.3 }, 1024: { slidesPerView: 3.2 }, 1280: { slidesPerView: 4.2 } }}
+          slidesPerView={RAIL_SLIDES_PER_VIEW}
+          spaceBetween={RAIL_SPACE_BETWEEN}
+          breakpoints={RAIL_BREAKPOINTS}
           onSwiper={(sw) => {
             setSwiper(sw);
             sync(sw);
           }}
           onSlideChange={sync}
           onReachBeginning={() => setAtStart(true)}
-          onReachEnd={() => setAtEnd(true)}
+          onReachEnd={() => {
+            setAtEnd(true);
+            growIfNeeded(); // append another batch so swiping never hits a dead end
+          }}
           onFromEdge={sync}
           onSetTranslate={sync}
           className="oasis-swiper !pb-7"
         >
-          {(isLoading ? Array.from({ length: 5 }) : list).map((p, i) => (
-            <SwiperSlide key={isLoading ? `s-${i}` : (p as DemoProduct).id} className="!h-auto">
+          {(isLoading ? Array.from({ length: 8 }) : list).map((p, i) => (
+            <SwiperSlide key={isLoading ? `s-${i}` : `${(p as DemoProduct).id}-${i}`} className="!h-auto">
               {isLoading ? <ProductCardSkeleton /> : <ProductCard product={p as DemoProduct} showVariants={showVariants} />}
             </SwiperSlide>
           ))}

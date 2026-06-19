@@ -73,6 +73,17 @@ html.theme-anim *::after {
     color 0.5s ease, fill 0.5s ease, stroke 0.5s ease, box-shadow 0.5s ease !important;
 }
 
+/* Reduce-motion: opt-in from Settings. Near-instant transitions/animations so
+   the app feels calmer without breaking layout that relies on final states. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
 /* ----------------------------- helpers ----------------------------------- */
 .glass {
   background: var(--panel);
@@ -176,10 +187,10 @@ html.light .popover {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
 }
 
-/* slim themed scrollbars (kills the default chunky/ugly bar) */
+/* slim, neutral scrollbars (no blue/accent tint — subtle grey that fades in) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--accent) 55%, transparent) transparent;
+  scrollbar-color: color-mix(in oklab, var(--panel-border) 90%, transparent) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
@@ -189,11 +200,11 @@ html.light .popover {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--accent) 45%, transparent);
+  background: color-mix(in oklab, var(--fg-muted) 30%, transparent);
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: var(--accent);
+  background: color-mix(in oklab, var(--fg-muted) 55%, transparent);
 }
 
 ::selection {

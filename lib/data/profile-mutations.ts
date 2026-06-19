@@ -6,6 +6,7 @@ import type {
   Plan,
   ProductCondition,
   ProductType,
+  ProfileLink,
   SellerProduct,
   Socials,
   UserReview,
@@ -121,6 +122,10 @@ export interface ProfileEdit {
   bannerUrl?: string | null;
   socials?: Socials;
   plan?: "free" | "pro" | "elite";
+  showPhone?: boolean;
+  phone?: string;
+  birthday?: string | null;
+  links?: ProfileLink[];
 }
 
 export async function updateProfile(sb: SupabaseClient, userId: string, e: ProfileEdit): Promise<void> {
@@ -131,6 +136,10 @@ export async function updateProfile(sb: SupabaseClient, userId: string, e: Profi
   if (e.bannerUrl !== undefined) patch.banner_url = e.bannerUrl;
   if (e.socials !== undefined) patch.socials = e.socials;
   if (e.plan !== undefined) patch.plan = e.plan;
+  if (e.showPhone !== undefined) patch.show_phone = e.showPhone;
+  if (e.phone !== undefined) patch.phone = e.phone;
+  if (e.birthday !== undefined) patch.birthday = e.birthday;
+  if (e.links !== undefined) patch.links = e.links;
   const { error } = await sb.from("profiles").update(patch).eq("id", userId);
   if (error) throw error;
 }
