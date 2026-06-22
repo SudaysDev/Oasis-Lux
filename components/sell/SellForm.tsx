@@ -6,7 +6,7 @@ import { ArrowLeft, Bold, Check, ImagePlus, Italic, List, Loader2, Lock, Smile, 
 import toast from "react-hot-toast";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { createProduct, uploadMedia } from "@/lib/data/profile-mutations";
-import { PRODUCT_BRANDS, SELL_COLORS } from "@/lib/sell-data";
+import { PRODUCT_BRANDS, SELL_COLORS, hexToHue } from "@/lib/sell-data";
 import { ProductArt } from "@/components/landing/ProductArt";
 import { ProGate } from "@/components/ai/ProGate";
 import { isPaidPlan } from "@/lib/plans";
@@ -35,9 +35,24 @@ function deriveType(tags: string[]): ProductType {
   return "perfume";
 }
 
-export function SellForm({ profile }: { profile: Profile }) {
+export function SellForm({
+  profile,
+  brands,
+  colorOptions,
+}: {
+  profile: Profile;
+  /** Brand list from the DB taxonomy (falls back to the legacy static list). */
+  brands?: string[];
+  /** Colors from the DB taxonomy (name+hex); hue is derived. */
+  colorOptions?: { name: string; hex: string }[];
+}) {
   const router = useRouter();
   const paid = isPaidPlan(profile.plan);
+  const brandList = brands && brands.length ? brands : PRODUCT_BRANDS;
+  const colorList: { name: string; hex: string; hue: number }[] =
+    colorOptions && colorOptions.length
+      ? colorOptions.map((c) => ({ ...c, hue: hexToHue(c.hex) }))
+      : SELL_COLORS;
   const [pics, setPics] = useState<Pic[]>([]);
   const [title, setTitle] = useState("");
   const [brand, setBrand] = useState("");
@@ -57,7 +72,7 @@ export function SellForm({ profile }: { profile: Profile }) {
 
   const type = deriveType(tags);
   const size = sizeAmount.trim() ? `${sizeAmount.trim()}${sizeUnit === "—" ? "" : ` ${sizeUnit}`}` : "";
-  const hue = SELL_COLORS.find((c) => c.name === colors[0])?.hue ?? 210;
+  const hue = colorList.find((c) => c.name === colors[0])?.hue ?? 210;
 
   // rich-text description (contentEditable → real bold / italic, not markdown)
   const syncDesc = () => setDesc(descRef.current?.innerHTML ?? "");
@@ -266,7 +281,7 @@ export function SellForm({ profile }: { profile: Profile }) {
 
           <label className="block">
             <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-fg-muted">Brand *</span>
-            <BrandSelect value={brand} onChange={setBrand} options={PRODUCT_BRANDS} />
+            <BrandSelect value={brand} onChange={setBrand} options={brandList} />
           </label>
 
           <div>
@@ -290,7 +305,7 @@ export function SellForm({ profile }: { profile: Profile }) {
               Colors {colors.length > 0 && <span className="text-accent">· {colors.join(", ")}</span>}
             </span>
             <div className="flex flex-wrap gap-2">
-              {SELL_COLORS.map((c) => {
+              {colorList.map((c) => {
                 const on = colors.includes(c.name);
                 return (
                   <button key={c.name} type="button" onClick={() => toggleColor(c.name)} title={c.name} aria-label={c.name} className={cn("relative h-8 w-8 rounded-full border-2 transition hover:scale-110", on ? "border-accent" : "border-transparent")} style={{ background: c.hex }}>

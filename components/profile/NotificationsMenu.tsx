@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import toast from "react-hot-toast";
 import { Bell, Bot, MessageSquare, Package, Star, Ticket } from "lucide-react";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { isMuted } from "@/lib/saved-media";
-import { loadNotifications, markAllNotificationsRead } from "@/lib/data/profile-mutations";
+import { loadNotifications, markAllNotificationsRead, markNotificationRead, notificationHref } from "@/lib/data/profile-mutations";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import type { AppNotification, NotificationType } from "@/types";
@@ -31,11 +32,22 @@ const ICON: Record<NotificationType, typeof Bell> = {
 };
 
 export function NotificationsMenu() {
+  const router = useRouter();
   const { profile } = useAuth();
   const userId = profile?.id;
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const unread = items.filter((n) => !n.read).length;
+
+  const openNotif = (n: AppNotification) => {
+    if (!n.read) {
+      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+      void markNotificationRead(getBrowserClient(), n.id).catch(() => {});
+    }
+    const href = notificationHref(n);
+    setOpen(false);
+    if (href) router.push(href);
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -127,26 +139,31 @@ export function NotificationsMenu() {
                 ) : (
                   items.map((n) => {
                     const Icon = ICON[n.type] ?? Bell;
+                    const clickable = notificationHref(n) !== null;
                     return (
-                      <div
+                      <button
                         key={n.id}
+                        type="button"
+                        onClick={() => openNotif(n)}
+                        disabled={!clickable}
                         className={cn(
-                          "flex gap-3 border-b border-[var(--panel-border)] px-4 py-3 transition hover:bg-[var(--panel)]",
+                          "flex w-full gap-3 border-b border-[var(--panel-border)] px-4 py-3 text-left transition hover:bg-[var(--panel)]",
                           !n.read && "bg-accent/5",
+                          clickable ? "cursor-pointer" : "cursor-default",
                         )}
                       >
                         <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent">
                           <Icon className="h-4 w-4" />
                         </span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium">{n.title}</p>
-                          {n.body && <p className="text-xs text-fg-muted">{n.body}</p>}
+                          {n.body && <p className="truncate text-xs text-fg-muted">{n.body}</p>}
                           <p className="mt-0.5 font-mono text-[10px] text-fg-muted/70">
                             {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                           </p>
                         </div>
                         {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />}
-                      </div>
+                      </button>
                     );
                   })
                 )}

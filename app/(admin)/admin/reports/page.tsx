@@ -15,7 +15,7 @@ export default async function AdminReportsPage() {
   const reports = await fetchReports(sb);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-6xl pb-12">
       <ReportsAdmin initial={reports} />
     </div>
   );

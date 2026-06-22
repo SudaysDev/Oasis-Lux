@@ -156,20 +156,20 @@ export function InventoryClient({ data }: { data: AdminInventory }) {
         {pageItems.map((p, i) => (
           <motion.div key={p.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }}
             className="grid grid-cols-[1fr_auto] items-center gap-3 border-b border-white/5 px-4 py-3 transition hover:bg-white/[0.03] lg:grid-cols-[1fr_90px_90px_90px_80px_110px_44px]">
-            <div className="flex min-w-0 items-center gap-3">
+            <Link href={`/admin/products/${p.id}`} className="flex min-w-0 items-center gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-white/5" style={{ boxShadow: `inset 0 0 0 1px ${TYPE_COLOR[p.type] ?? GREEN}33` }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-4 w-4 text-white/30" />}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{p.title}</p>
+                <p className="truncate text-sm font-semibold text-white transition hover:text-[#22ff88]">{p.title}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded px-1.5 py-0.5 font-mono text-[9px] uppercase" style={{ background: `${TYPE_COLOR[p.type] ?? GREEN}1f`, color: TYPE_COLOR[p.type] ?? GREEN }}>{p.type}</span>
+                  <span className="rounded px-1.5 py-0.5 font-mono text-[9px] uppercase" style={{ background: `${TYPE_COLOR[p.type] ?? GREEN}1f`, color: TYPE_COLOR[p.type] ?? GREEN }}>{p.category ? pretty(p.category) : p.type}</span>
                   <span className="font-mono text-[10px] text-white/45">{p.brand}</span>
-                  {p.category && <span className="font-mono text-[10px] text-white/30">· {pretty(p.category)}</span>}
+                  <span className="font-mono text-[9px] text-white/25">{p.type}</span>
                 </div>
               </div>
-            </div>
+            </Link>
             <span className="hidden text-right font-mono text-sm font-bold text-white lg:block">{group(p.price)}<span className="text-[10px] text-white/40"> смн</span></span>
             <span className="hidden text-right font-mono text-sm font-bold lg:block" style={{ color: stockColor(p.stock) }}>{p.stock}</span>
             <span className="hidden text-right font-mono text-sm lg:block" style={{ color: "#fbbf24" }}>{p.rating ? `${p.rating}★` : "—"}</span>
@@ -227,7 +227,7 @@ export function InventoryClient({ data }: { data: AdminInventory }) {
               </div>
               <div className="mt-4 grid gap-2">
                 <Link href={`/admin/users/${target.sellerId}`} className="flex items-center gap-3 rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-white/5"><Package className="h-4 w-4 text-white/70" /> View seller @{target.seller}</Link>
-                <Act Icon={Pencil} label="Edit product" onClick={() => { setTarget(null); toast("Product editor lands with the Inventory module.", { icon: "✏️" }); }} />
+                <Link href={`/admin/products/${target.id}`} className="flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition hover:bg-white/5" style={{ borderColor: `${GREEN}44`, color: GREEN }}><Pencil className="h-4 w-4" /> Open product editor</Link>
                 <Act Icon={Copy} label="Duplicate" onClick={() => { setTarget(null); toast("Duplicate wires up with Full Control.", { icon: "📑" }); }} />
                 <Act Icon={Trash2} label="Delete product" danger onClick={() => { setTarget(null); toast("Deletion goes live with Full Control.", { icon: "🗑️" }); }} />
               </div>

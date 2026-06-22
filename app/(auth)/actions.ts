@@ -40,10 +40,19 @@ export async function loginAction(_prev: AuthFormState, formData: FormData): Pro
   } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_banned, ban_reason, ban_until")
     .eq("id", user!.id)
     .maybeSingle();
   const role = (profile?.role as Role | undefined) ?? "customer";
+
+  // Banned accounts (permanent or a live timed ban) can't hold a session.
+  const tempActive = profile?.ban_until ? new Date(profile.ban_until as string) > new Date() : false;
+  if (profile?.is_banned || tempActive) {
+    await supabase.auth.signOut();
+    const reason = (profile?.ban_reason as string | null)?.trim();
+    const until = tempActive ? ` until ${new Date(profile!.ban_until as string).toLocaleString("en-GB")}` : "";
+    return { error: reason ? `Account suspended${until}: ${reason}` : `This account has been suspended${until}.` };
+  }
 
   if (kind === "courier" && role !== "courier") {
     await supabase.auth.signOut();

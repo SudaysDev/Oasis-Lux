@@ -11,11 +11,12 @@ import {
   Bot,
   Boxes,
   Flag,
-  Gauge,
   Layers,
   LayoutGrid,
   LogOut,
   Menu,
+  MessageSquare,
+  Receipt,
   ShieldHalf,
   Store,
   Terminal,
@@ -35,16 +36,40 @@ const NAV: { href: string; label: string; Icon: typeof LayoutGrid; hint: string 
   { href: "/admin/stats", label: "Statistics", Icon: BarChart3, hint: "Everything, measured" },
   { href: "/admin/users", label: "Users", Icon: Users, hint: "Every account ever" },
   { href: "/admin/products", label: "Inventory", Icon: Boxes, hint: "Catalog control" },
+  { href: "/admin/orders", label: "Orders", Icon: Receipt, hint: "Every order" },
   { href: "/admin/catalog", label: "Taxonomy", Icon: Layers, hint: "Categories · brands · colors" },
   { href: "/admin/promo", label: "Promo Engine", Icon: Ticket, hint: "AI promo patterns" },
   { href: "/admin/logistics", label: "Logistics", Icon: Truck, hint: "Live deliveries" },
   { href: "/admin/control", label: "Full Control", Icon: Terminal, hint: "Command console" },
   { href: "/admin/bans", label: "Black List", Icon: UserX, hint: "Bans & restrictions" },
+  { href: "/admin/messages", label: "Messages", Icon: MessageSquare, hint: "Moderate any chat" },
   { href: "/admin/reports", label: "Reports", Icon: Flag, hint: "Abuse & moderation" },
   { href: "/admin/copilot", label: "Copilot", Icon: Bot, hint: "Admin AI" },
 ];
 
 const GREEN = "#22ff88";
+
+/** A tiny live speedometer — the dial sits still, only the needle sweeps side to side. */
+function GaugeNeedle() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden style={{ filter: `drop-shadow(0 0 3px ${GREEN}88)` }}>
+      <path d="M3.5 17 A 9 9 0 0 1 20.5 17" stroke={GREEN} strokeWidth="2" strokeLinecap="round" opacity="0.55" />
+      {[-60, -20, 20, 60].map((a) => {
+        const r = (a * Math.PI) / 180;
+        const x1 = 12 + 8 * Math.sin(r), y1 = 17 - 8 * Math.cos(r);
+        const x2 = 12 + 6.5 * Math.sin(r), y2 = 17 - 6.5 * Math.cos(r);
+        return <line key={a} x1={x1} y1={y1} x2={x2} y2={y2} stroke={GREEN} strokeWidth="1" opacity="0.35" />;
+      })}
+      <motion.line
+        x1="12" y1="17" x2="12" y2="8" stroke={GREEN} strokeWidth="2" strokeLinecap="round"
+        style={{ transformOrigin: "12px 17px", filter: `drop-shadow(0 0 2px ${GREEN})` }}
+        animate={{ rotate: [-62, 62, -30, 48, -62] }}
+        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <circle cx="12" cy="17" r="1.7" fill={GREEN} />
+    </svg>
+  );
+}
 
 export function AdminShell({ profile, children }: { profile: Profile; children: ReactNode }) {
   const pathname = usePathname();
@@ -185,17 +210,30 @@ export function AdminShell({ profile, children }: { profile: Profile; children: 
             >
               <Menu className="h-4 w-4" />
             </button>
-            <span
+            <motion.span
               className="flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.25em]"
-              style={{ borderColor: "rgba(34,255,136,0.3)", color: GREEN }}
+              style={{ color: GREEN }}
+              animate={{ borderColor: ["rgba(34,255,136,0.25)", "rgba(34,255,136,0.7)", "rgba(34,255,136,0.25)"], boxShadow: ["0 0 0px rgba(34,255,136,0)", "0 0 14px rgba(34,255,136,0.35)", "0 0 0px rgba(34,255,136,0)"] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
             >
-              <Activity className="h-3.5 w-3.5" /> System online
-            </span>
+              <motion.span
+                className="inline-flex"
+                style={{ filter: `drop-shadow(0 0 5px ${GREEN})` }}
+                animate={{ scale: [1, 1, 1.45, 0.92, 1.12, 1, 1], y: [0, 0, -3, 1, 0, 0, 0] }}
+                transition={{ duration: 1.5, times: [0, 0.32, 0.42, 0.5, 0.58, 0.7, 1], repeat: Infinity, ease: "easeOut" }}
+              >
+                <Activity className="h-3.5 w-3.5" />
+              </motion.span>
+              System online
+            </motion.span>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-2 font-mono text-[11px] text-fg-muted sm:flex">
-              <Gauge className="h-3.5 w-3.5" style={{ color: GREEN }} /> root access
+              <GaugeNeedle />
+              <motion.span animate={{ color: ["#9aa3b2", GREEN, "#9aa3b2"] }} transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}>
+                root access
+              </motion.span>
             </span>
             <div className="flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 py-1 pl-3 pr-1.5">
               <div className="text-right leading-tight">

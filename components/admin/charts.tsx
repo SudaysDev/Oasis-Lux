@@ -292,11 +292,16 @@ export function Donut({ data, size = 170 }: { data: { label: string; value: numb
 }
 
 /* -------------------------------------------------------------- RadialGauge */
-export function RadialGauge({ value, label, color = GREEN }: { value: number; label: string; color?: string }) {
+export function RadialGauge({ value, label, color = GREEN, needle = false }: { value: number; label: string; color?: string; needle?: boolean }) {
   const r = 56;
   const c = 2 * Math.PI * r;
   const arc = 0.75; // 270°
   const filled = (value / 100) * arc * c;
+  // needle endpoint in the svg's local frame (svg is rotate-[135deg], arc starts at 3 o'clock)
+  const nθ = ((value / 100) * 270 * Math.PI) / 180;
+  const nLen = 40;
+  const nx = 75 + nLen * Math.cos(nθ);
+  const ny = 75 + nLen * Math.sin(nθ);
   return (
     <div className="flex flex-col items-center">
       <div className="relative h-[150px] w-[150px]">
@@ -326,6 +331,31 @@ export function RadialGauge({ value, label, color = GREEN }: { value: number; la
             transition={{ duration: 1.2, ease: "easeOut" }}
             style={{ filter: `drop-shadow(0 0 6px ${color})` }}
           />
+          {needle && (
+            // live "speedometer" — needle settles to the value, then breathes ±2.5°
+            <motion.g
+              style={{ transformOrigin: "75px 75px" }}
+              animate={{ rotate: [-2.5, 2.5, -2.5] }}
+              transition={{ duration: 3.4, ease: "easeInOut", repeat: Infinity }}
+            >
+              <motion.line
+                x1="75" y1="75" x2={nx} y2={ny}
+                stroke={color} strokeWidth={3} strokeLinecap="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                whileInView={{ pathLength: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                style={{ filter: `drop-shadow(0 0 4px ${color})` }}
+              />
+              <circle cx="75" cy="75" r={4.5} fill={color} style={{ filter: `drop-shadow(0 0 5px ${color})` }} />
+              <motion.circle
+                cx={nx} cy={ny} r={3.5} fill={color}
+                animate={{ scale: [1, 1.6, 1], opacity: [1, 0.5, 1] }}
+                transition={{ duration: 1.4, ease: "easeInOut", repeat: Infinity }}
+                style={{ transformOrigin: `${nx}px ${ny}px`, filter: `drop-shadow(0 0 6px ${color})` }}
+              />
+            </motion.g>
+          )}
         </svg>
         <div className="absolute inset-0 grid place-content-center text-center">
           <CountUp value={value} className="text-3xl font-black" />

@@ -47,15 +47,35 @@ function mapRow(r: Row): DemoProduct {
   };
 }
 
-/** All active listings, newest first. */
+/** True when a jsonb sanction/flag map has `key` active (= 'perm' or a future ISO date). */
+function sancActive(map: Record<string, string> | null | undefined, key: string): boolean {
+  const v = map?.[key];
+  if (!v) return false;
+  return v === "perm" || new Date(v).getTime() > Date.now();
+}
+
+/** All active listings — PROMOTED first (featured products + boosted sellers), then newest.
+ *  This is how `/promote <id>` and `/boost @seller` surface more often in the feed. */
 export async function fetchActiveProducts(sb: SupabaseClient, limit = 120): Promise<DemoProduct[]> {
   const { data } = await sb
     .from("products")
-    .select("id,title,brand,type,price,stock,hue,rating,images,description,tags,color,size,condition,created_at")
+    .select("id,title,brand,type,price,stock,hue,rating,images,description,tags,color,size,condition,created_at,seller_id,sanctions")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(limit);
-  return ((data ?? []) as Row[]).map(mapRow);
+
+  type Raw = Row & { seller_id: string; sanctions: Record<string, string> | null };
+  const rows = (data ?? []) as Raw[];
+
+  // which sellers are currently boosted (small set — boosted is rare)
+  const boosted = new Set<string>();
+  const { data: bs } = await sb.from("profiles").select("id").eq("is_boosted", true);
+  for (const r of (bs ?? []) as { id: string }[]) boosted.add(r.id);
+
+  // rank: featured product (2) > boosted seller (1) > normal (0); stable within rank keeps newest-first
+  const rank = (r: Raw) => (sancActive(r.sanctions, "featured") ? 2 : boosted.has(r.seller_id) ? 1 : 0);
+  const ordered = rows.map((r, i) => ({ r, i })).sort((a, b) => rank(b.r) - rank(a.r) || a.i - b.i);
+  return ordered.map(({ r }) => mapRow(r));
 }
 
 // ---------------------------------------------------------------------------

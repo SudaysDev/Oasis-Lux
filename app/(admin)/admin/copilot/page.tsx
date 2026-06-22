@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { AdminPlaceholder } from "@/components/admin/AdminPlaceholder";
+import { redirect } from "next/navigation";
+import { getCurrentProfile } from "@/lib/auth/session";
+import { CopilotClient } from "@/components/admin/CopilotClient";
 
 export const metadata: Metadata = { title: "Admin Copilot · Admin" };
+export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return (
-    <AdminPlaceholder
-      kicker="Admin Copilot"
-      title="The smartest AI in the grid"
-      blurb="An admin-only copilot that reads logs, runs the panel tour, and executes on command — “make a 30% cashback promo for watches” and it builds + activates it. Accepts images too."
-    />
-  );
+export default async function Page() {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "admin") redirect("/home");
+  return <CopilotClient profile={profile} />;
 }

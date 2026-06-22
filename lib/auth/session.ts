@@ -63,7 +63,13 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   if (!user) return null;
 
   const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-  return data ? mapProfileRow(data as ProfileRow) : null;
+  if (!data) return null;
+  // A banned account (permanent OR a still-active timed ban) is treated as
+  // signed-out everywhere the app gates on the current profile. The explicit
+  // "you are banned" message lives in loginAction.
+  const m = data as { is_banned?: boolean; ban_until?: string | null };
+  if (m.is_banned || (m.ban_until && new Date(m.ban_until) > new Date())) return null;
+  return mapProfileRow(data as ProfileRow);
 });
 
 /** Gate a Server Component / page on auth. Redirects to /login when signed out. */

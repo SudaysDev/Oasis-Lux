@@ -287,3 +287,34 @@ export async function loadNotifications(sb: SupabaseClient, userId: string): Pro
 export async function markAllNotificationsRead(sb: SupabaseClient, userId: string): Promise<void> {
   await sb.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
 }
+
+export async function markNotificationRead(sb: SupabaseClient, id: string): Promise<void> {
+  await sb.from("notifications").update({ read: true }).eq("id", id);
+}
+
+/**
+ * Resolve where a notification should take the user when tapped.
+ *   message → the conversation · review → the reviewed profile/product · order → orders …
+ * Returns null when there's nowhere meaningful to go (e.g. plain system note).
+ */
+export function notificationHref(n: AppNotification): string | null {
+  const d = (n.data ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof d[k] === "string" ? (d[k] as string) : null);
+  switch (n.type) {
+    case "message": {
+      const conv = str("conversationId");
+      return conv ? `/messages/${conv}` : "/messages";
+    }
+    case "review": {
+      const product = str("productId");
+      if (product) return `/product/${product}`;
+      return "/profile"; // a review of my own profile → my profile (with the review)
+    }
+    case "order":
+      return "/orders";
+    case "promo":
+      return "/promo";
+    default:
+      return null;
+  }
+}

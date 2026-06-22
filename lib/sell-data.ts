@@ -14,6 +14,31 @@ export const PRODUCT_BRANDS: string[] = [
 
 export type SellColor = { name: string; hex: string; hue: number };
 
+/** Derive an HSL hue (0–360) from a #rrggbb hex — used when a color comes from
+ *  the DB (which stores only name+hex) so the neon preview art still works. */
+export function hexToHue(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 210;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 210;
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = Math.round(h * 60);
+  return h < 0 ? h + 360 : h;
+}
+
+/** Compute rgb() string from a #rrggbb hex (admin color editor display). */
+export function hexToRgb(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return "rgb(136, 136, 136)";
+  const n = parseInt(m[1], 16);
+  return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
+}
+
 export const SELL_COLORS: SellColor[] = [
   { name: "Onyx", hex: "#0a0a0a", hue: 220 },
   { name: "Graphite", hex: "#374151", hue: 215 },

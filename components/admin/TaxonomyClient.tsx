@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { Check, FolderPlus, Layers, Palette, Pencil, Plus, Tag, Trash2, X } from "lucide-react";
 import { CountUp, GREEN, LiveStatus } from "./charts";
+import { hexToRgb } from "@/lib/sell-data";
 import type { AdminTaxonomy } from "@/lib/data/admin-taxonomy";
 import {
   createBrand, createCategory, createColor, createTag,
@@ -200,7 +201,8 @@ function Colors({ data, run, busy }: { data: AdminTaxonomy; run: (fn: () => Prom
             </label>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-white">{c.name}</p>
-              <p className="font-mono text-[10px] text-white/40">{c.hex} · {c.count} used</p>
+              <p className="font-mono text-[10px] text-white/40">{c.hex.toUpperCase()}</p>
+              <p className="font-mono text-[9px] text-white/30">{hexToRgb(c.hex)} · {c.count} used</p>
             </div>
             <button onClick={() => run(() => deleteColor(c.id), "Color removed")} className="rounded-lg p-1 text-white/30 transition hover:bg-red-500/20 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>
           </div>

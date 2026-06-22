@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { getBrowserClient } from "@/lib/supabase/client";
 import {
   Bot,
   Heart,
@@ -50,6 +51,27 @@ export function Sidebar({ profile, onNavigate }: { profile: Profile; onNavigate?
   const dispatch = useAppDispatch();
   const { t } = useT();
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [unreadChats, setUnreadChats] = useState(0);
+
+  // TikTok-style unread badge: how many people have unread messages waiting for me.
+  useEffect(() => {
+    const userId = profile.id;
+    if (!userId) return;
+    const sb = getBrowserClient();
+    let cancelled = false;
+    const refresh = async () => {
+      const { data } = await sb.from("messages").select("conversation_id").eq("recipient_id", userId).eq("read", false);
+      if (cancelled) return;
+      setUnreadChats(new Set((data ?? []).map((r) => (r as { conversation_id: string }).conversation_id)).size);
+    };
+    void refresh();
+    const ch = sb
+      .channel(`sidebar-unread:${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, () => void refresh())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, () => void refresh())
+      .subscribe();
+    return () => { cancelled = true; void sb.removeChannel(ch); };
+  }, [profile.id]);
 
   const items = profile.role === "admin" ? [...NAV, { key: "nav.admin", href: "/admin", icon: Shield }] : NAV;
 
@@ -74,20 +96,33 @@ export function Sidebar({ profile, onNavigate }: { profile: Profile; onNavigate?
         {items.map((it) => {
           const active = pathname === it.href;
           const Icon = it.icon;
+          const badge = it.href === "/messages" ? unreadChats : 0;
           return (
             <Link
               key={it.href}
               href={it.href}
               onClick={onNavigate}
-              title={t(it.key)}
+              title={badge > 0 ? `${t(it.key)} · ${badge} new` : t(it.key)}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition",
                 !open && "justify-center",
                 active ? "neon-border text-accent" : "text-fg-muted hover:bg-[var(--panel)] hover:text-fg",
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
+              <span className="relative shrink-0">
+                <Icon className="h-5 w-5" />
+                {badge > 0 && (
+                  <span className="absolute -right-2 -top-2 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_10px_var(--accent-glow)]">
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                )}
+              </span>
               {open && <span className="text-sm">{t(it.key)}</span>}
+              {open && badge > 0 && (
+                <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                  {badge > 99 ? "99+" : badge}
+                </span>
+              )}
             </Link>
           );
         })}

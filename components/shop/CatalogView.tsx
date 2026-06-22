@@ -75,6 +75,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
   const { products, loading } = useLiveProducts();
   const { money } = useMoney();
   const [cats, setCats] = useState<Category[]>([]);
+  const [colorOpts, setColorOpts] = useState<{ name: string; hex: string }[]>(SELL_COLORS);
   const [q, setQ] = useState(initialQ);
   const [brandQ, setBrandQ] = useState("");
   const [selCats, setSelCats] = useState<string[]>(initialCat ? [initialCat] : []);
@@ -94,6 +95,11 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
   const [page, setPage] = useState(1);
 
   useEffect(() => { void fetchCategories(getBrowserClient()).then(setCats); }, []);
+  useEffect(() => {
+    void getBrowserClient().from("colors").select("name,hex").order("created_at").then(({ data }) => {
+      if (data && data.length) setColorOpts(data as { name: string; hex: string }[]);
+    });
+  }, []);
 
   const groups = useMemo(() => groupCategories(cats), [cats]);
   const brands = useMemo(() => Array.from(new Set(products.map((p) => p.brand).filter((b) => b && b !== "—"))).sort(), [products]);
@@ -255,7 +261,7 @@ export function CatalogView({ initialQ = "", initialCat = null }: { initialQ?: s
           {/* COLORS */}
           <Section title="Color" icon={<Palette className="h-3.5 w-3.5" />}>
             <div className="flex flex-wrap gap-1.5">
-              {SELL_COLORS.map((c) => {
+              {colorOpts.map((c) => {
                 const on = selColors.includes(c.name);
                 return (
                   <button key={c.name} onClick={() => onFilter(() => setSelColors((a) => toggle(a, c.name)))} title={c.name} aria-label={c.name} className={cn("h-6 w-6 rounded-full border-2 transition hover:scale-110", on ? "border-accent" : "border-transparent")} style={{ background: c.hex }} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,9 +13,11 @@ import {
   ChevronRight,
   Crown,
   Eye,
+  Loader2,
   Pencil,
   Search,
   ShieldAlert,
+  ShieldBan,
   ShieldCheck,
   ShoppingBag,
   SlidersHorizontal,
@@ -27,6 +29,7 @@ import {
 } from "lucide-react";
 import { CountUp, GREEN, group, LiveStatus } from "./charts";
 import { Select } from "./Select";
+import { adminBanUser, adminUnbanUser } from "@/app/(admin)/admin/users/[id]/actions";
 import type { AdminUsersList, UserListRow } from "@/lib/data/admin-users";
 
 const ROLE_COLOR: Record<string, string> = { customer: "#22ff88", seller: "#38bdf8", courier: "#fbbf24", admin: "#a78bfa" };
@@ -62,8 +65,21 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
   const [sort, setSort] = useState<SortId>("new");
   const [onlyVerified, setOnlyVerified] = useState(false);
   const [onlyBuyers, setOnlyBuyers] = useState(false);
+  const [onlyBanned, setOnlyBanned] = useState(false);
   const [target, setTarget] = useState<UserListRow | null>(null);
   const [page, setPage] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
+
+  const quickBan = (u: UserListRow) => {
+    setBusy(true);
+    startTransition(async () => {
+      const r = u.isBanned ? await adminUnbanUser(u.id) : await adminBanUser(u.id, "");
+      setBusy(false);
+      if (!r.ok) toast.error(r.error);
+      else { toast.success(u.isBanned ? "Reinstated" : "Banned"); setTarget(null); router.refresh(); }
+    });
+  };
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -71,6 +87,7 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
       if (role !== "all" && u.role !== role) return false;
       if (onlyVerified && !u.isVerified) return false;
       if (onlyBuyers && u.orders === 0) return false;
+      if (onlyBanned && !u.isBanned) return false;
       if (needle) {
         const hay = `${u.username} ${u.fullName} ${u.email ?? ""} ${u.id}`.toLowerCase();
         if (!hay.includes(needle)) return false;
@@ -88,7 +105,7 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
     };
     list = [...list].sort(by[sort]);
     return list;
-  }, [data.users, q, role, sort, onlyVerified, onlyBuyers]);
+  }, [data.users, q, role, sort, onlyVerified, onlyBuyers, onlyBanned]);
 
   const roleCount = (r: string) => (r === "all" ? data.users.length : data.users.filter((u) => u.role === r).length);
 
@@ -119,7 +136,7 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
         <Tile label="Sellers" value={s.sellers} accent="#a78bfa" />
         <Tile label="Couriers" value={s.couriers} accent="#fbbf24" />
         <Tile label="Verified" value={s.verified} accent="#34d399" />
-        <Tile label="New · 7d" value={s.new7d} accent="#fb7185" />
+        <Tile label="Banned" value={s.banned} accent="#ef4444" />
       </div>
 
       {/* controls */}
@@ -162,6 +179,8 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
           <span className="mx-1 h-5 w-px bg-white/10" />
           <Toggle on={onlyVerified} onClick={() => { setOnlyVerified((v) => !v); reset(); }} Icon={BadgeCheck} label="Verified" />
           <Toggle on={onlyBuyers} onClick={() => { setOnlyBuyers((v) => !v); reset(); }} Icon={ShoppingBag} label="Buyers" />
+          <Toggle on={onlyBanned} onClick={() => { setOnlyBanned((v) => !v); reset(); }} Icon={ShieldBan} label="Banned" danger />
+          {s.restricted > 0 && <span className="font-mono text-[11px] text-[#fb7185]/80">· {s.restricted} restricted</span>}
           <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px] text-white/45">
             <Users className="h-3.5 w-3.5" /> {filtered.length} shown
           </span>
@@ -178,17 +197,21 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.015, 0.4) }}
           >
-            <div className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-white/25 hover:bg-white/[0.05]">
+            <div className="group flex items-center gap-3 rounded-2xl border p-3 transition hover:bg-white/[0.05]" style={u.isBanned ? { borderColor: "rgba(239,68,68,0.4)", background: "rgba(239,68,68,0.06)" } : { borderColor: "rgba(255,255,255,0.1)" }}>
               <Link href={`/admin/users/${u.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-black" style={{ background: `${ROLE_COLOR[u.role] ?? GREEN}22`, color: ROLE_COLOR[u.role] ?? GREEN }}>
+                <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full text-sm font-black" style={{ background: `${ROLE_COLOR[u.role] ?? GREEN}22`, color: ROLE_COLOR[u.role] ?? GREEN, boxShadow: u.isBanned ? "0 0 0 2px #ef4444" : undefined }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {u.avatarUrl ? <img src={u.avatarUrl} alt="" className="h-full w-full object-cover" /> : u.username.slice(0, 1).toUpperCase()}
                 </span>
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 truncate font-semibold text-white">
+                  <p className="flex flex-wrap items-center gap-1.5 truncate font-semibold text-white">
                     @{u.username}
                     {u.isVerified && <BadgeCheck className="h-3.5 w-3.5 text-[#34d399]" />}
                     {u.isAdmin && <Crown className="h-3.5 w-3.5 text-[#a78bfa]" />}
+                    {u.isBanned && <Chip color="#ef4444"><ShieldBan className="h-3 w-3" /> banned</Chip>}
+                    {!u.isBanned && u.restrictChat && <Chip color="#fb7185">no chat</Chip>}
+                    {!u.isBanned && u.restrictSell && <Chip color="#fb7185">no sell</Chip>}
+                    {!u.isBanned && u.restrictBuy && <Chip color="#fb7185">no buy</Chip>}
                   </p>
                   <p className="truncate font-mono text-[11px] text-white/45">
                     <span className="capitalize" style={{ color: ROLE_COLOR[u.role] }}>{u.role}</span>
@@ -285,14 +308,25 @@ export function UsersClient({ data }: { data: AdminUsersList }) {
                 </div>
               )}
 
+              {target.isBanned && (
+                <div className="mt-4 flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed" style={{ borderColor: "rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.08)" }}>
+                  <ShieldBan className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                  <span className="text-white/75">Currently <strong className="text-red-300">suspended</strong>. They can&apos;t sign in or act until reinstated.</span>
+                </div>
+              )}
+
               <div className="mt-4 grid gap-2">
                 <Link href={`/admin/users/${target.id}`} className="flex items-center gap-3 rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-white/5">
                   <Eye className="h-4 w-4 text-white/70" /> Open dossier
                 </Link>
-                <Act Icon={Pencil} label="Edit profile" disabled={target.isAdmin} onClick={() => { setTarget(null); toast("Profile editor arrives with the Users module.", { icon: "✏️" }); }} />
-                <Act Icon={SlidersHorizontal} label="Restrict (brand / sell / chat)" disabled={target.isAdmin} onClick={() => { setTarget(null); toast("Restriction tools land in the Black List module.", { icon: "🛡️" }); }} />
-                <Act Icon={Ban} label="Ban account" danger disabled={target.isAdmin} onClick={() => { setTarget(null); toast("Ban controls go live with Full Control.", { icon: "⛔" }); }} />
-                <Act Icon={Trash2} label="Delete account" danger disabled={target.isAdmin} onClick={() => { setTarget(null); toast("Deletion wires up with Full Control.", { icon: "🗑️" }); }} />
+                <Act Icon={Pencil} label="Edit profile" disabled={target.isAdmin} onClick={() => router.push(`/admin/users/${target.id}#control-room`)} />
+                <Act Icon={SlidersHorizontal} label="Restrictions (chat / sell / buy)" disabled={target.isAdmin} onClick={() => router.push(`/admin/users/${target.id}#control-room`)} />
+                {target.isBanned ? (
+                  <Act Icon={ShieldCheck} label={busy ? "Working…" : "Lift suspension"} disabled={busy} onClick={() => quickBan(target)} />
+                ) : (
+                  <Act Icon={busy ? Loader2 : Ban} label={busy ? "Working…" : "Ban account"} danger disabled={target.isAdmin || busy} onClick={() => quickBan(target)} />
+                )}
+                <Act Icon={Trash2} label="Delete account" danger disabled={target.isAdmin} onClick={() => router.push(`/admin/users/${target.id}#control-room`)} />
               </div>
 
               <button onClick={() => { router.push(`/admin/users/${target.id}`); }} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold uppercase tracking-wider transition" style={{ background: `${GREEN}1f`, color: GREEN }}>
@@ -330,12 +364,16 @@ function Metric({ label, value, unit }: { label: string; value: string; unit?: s
     </div>
   );
 }
-function Toggle({ on, onClick, Icon, label }: { on: boolean; onClick: () => void; Icon: typeof Star; label: string }) {
+function Toggle({ on, onClick, Icon, label, danger }: { on: boolean; onClick: () => void; Icon: typeof Star; label: string; danger?: boolean }) {
+  const c = danger ? "#ef4444" : GREEN;
   return (
-    <button onClick={onClick} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition" style={on ? { borderColor: `${GREEN}66`, background: `${GREEN}1f`, color: GREEN } : { borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.55)" }}>
+    <button onClick={onClick} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition" style={on ? { borderColor: `${c}66`, background: `${c}1f`, color: c } : { borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.55)" }}>
       <Icon className="h-3.5 w-3.5" /> {label}
     </button>
   );
+}
+function Chip({ children, color }: { children: React.ReactNode; color: string }) {
+  return <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider" style={{ background: `${color}22`, color }}>{children}</span>;
 }
 function Act({ Icon, label, onClick, disabled, danger }: { Icon: typeof Ban; label: string; onClick: () => void; disabled?: boolean; danger?: boolean }) {
   return (
