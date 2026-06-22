@@ -39,6 +39,29 @@ export const ADMIN_ACCOUNTS: AdminAccount[] = [
   },
 ];
 
+/**
+ * THE OWNER. There are two operators but they are NOT equal: the owner (creator)
+ * outranks every other admin — the owner can ban / restrict / delete a fellow
+ * admin, but no one can ever touch the owner. Identity is keyed on the stable
+ * operator email (usernames can be changed; the email/key can't).
+ */
+export const OWNER_EMAIL = "sudays@operator.oasislux.app";
+
+export function isOwnerEmail(email?: string | null): boolean {
+  return (email ?? "").trim().toLowerCase() === OWNER_EMAIL;
+}
+
+/**
+ * Can an operator with `actorEmail` moderate a fellow admin with `targetEmail`?
+ * - the owner is untouchable (returns false for any actor);
+ * - only the owner may moderate another (non-owner) admin.
+ * (Call this ONLY when the target is actually an admin — normal users aren't gated.)
+ */
+export function canModerateAdmin(actorEmail?: string | null, targetEmail?: string | null): boolean {
+  if (isOwnerEmail(targetEmail)) return false;   // the owner can never be sanctioned
+  return isOwnerEmail(actorEmail);               // and only the owner outranks a fellow admin
+}
+
 /** True when an email belongs to a reserved operator identity (block in register). */
 export function isOperatorEmail(email: string): boolean {
   const e = email.trim().toLowerCase();

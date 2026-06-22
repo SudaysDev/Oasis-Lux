@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { guardModerateUser } from "@/lib/auth/admin-guard";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -12,12 +13,6 @@ async function admin() {
   const profile = await getCurrentProfile();
   if (!profile || profile.role !== "admin") throw new Error("forbidden");
   return createAdminClient();
-}
-
-/** Protected-admin guard — another admin can't moderate a fellow admin. */
-async function targetRole(sb: ReturnType<typeof createAdminClient>, id: string): Promise<string | null> {
-  const { data } = await sb.from("profiles").select("role").eq("id", id).maybeSingle();
-  return (data?.role as string | undefined) ?? null;
 }
 
 function revalidate(id: string) {
@@ -32,7 +27,8 @@ function revalidate(id: string) {
 export async function adminBanUser(id: string, reason: string, durationMs?: number): Promise<ActionResult> {
   try {
     const sb = await admin();
-    if ((await targetRole(sb, id)) === "admin") return { ok: false, error: "Admins are protected — can't be banned." };
+    const guard = await guardModerateUser(sb, id);
+    if (guard) return { ok: false, error: guard };
     const now = new Date();
     const timed = typeof durationMs === "number" && durationMs > 0;
     const until = timed ? new Date(now.getTime() + durationMs).toISOString() : null;
@@ -73,7 +69,8 @@ const RESTRICT_KINDS = new Set<RestrictKind>(["chat", "sell", "buy", "review", "
 export async function adminSetRestriction(id: string, kind: RestrictKind, value: boolean, durationMs?: number): Promise<ActionResult> {
   try {
     const sb = await admin();
-    if ((await targetRole(sb, id)) === "admin") return { ok: false, error: "Admins are protected." };
+    const guard = await guardModerateUser(sb, id);
+    if (guard) return { ok: false, error: guard };
     if (!RESTRICT_KINDS.has(kind)) return { ok: false, error: "Unknown restriction." };
     const { data } = await sb.from("profiles").select("restrictions").eq("id", id).maybeSingle();
     const map = { ...((data?.restrictions ?? {}) as Record<string, string>) };
@@ -102,7 +99,8 @@ const TIERS = new Set(["Bronze", "Silver", "Gold", "Platinum"]);
 export async function adminUpdateUserProfile(id: string, patch: UserPatch): Promise<ActionResult> {
   try {
     const sb = await admin();
-    if ((await targetRole(sb, id)) === "admin") return { ok: false, error: "Admins are protected — edit them via the operator key flow." };
+    const guard = await guardModerateUser(sb, id);
+    if (guard) return { ok: false, error: guard };
     const clean: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(patch)) if (ALLOWED.has(k)) clean[k] = v;
     if (typeof clean.role === "string" && !ROLES.has(clean.role)) return { ok: false, error: "Can't promote to admin from here." };
@@ -131,7 +129,7 @@ export async function adminSetUserNote(id: string, note: string): Promise<Action
 // ---------------------------------------------------------------------------
 export async function adminDeleteUser(id: string): Promise<void> {
   const sb = await admin();
-  if ((await targetRole(sb, id)) === "admin") throw new Error("forbidden");
+  if (await guardModerateUser(sb, id)) throw new Error("forbidden");
   await sb.auth.admin.deleteUser(id);
   revalidatePath("/admin/users");
   redirect("/admin/users");

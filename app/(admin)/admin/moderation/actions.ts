@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { guardModerateUser } from "@/lib/auth/admin-guard";
 import { decidePunishment, type ModDecision, type ModSubject, type ViolationCategory } from "@/lib/moderation/policy";
 
 export type FileViolationResult = { ok: true; decision: ModDecision } | { ok: false; error: string };
@@ -36,7 +37,8 @@ export async function adminFileViolation(input: ViolationInput): Promise<FileVio
     if (input.subjectType === "user") {
       const { data } = await sb.from("profiles").select("role").eq("id", input.subjectId).maybeSingle();
       if (!data) return { ok: false, error: "User not found." };
-      if (data.role === "admin") return { ok: false, error: "Admins are protected from moderation." };
+      const guard = await guardModerateUser(sb, input.subjectId);
+      if (guard) return { ok: false, error: guard };
       offenderId = input.subjectId;
     } else {
       const { data } = await sb.from("products").select("seller_id,title").eq("id", input.subjectId).maybeSingle();

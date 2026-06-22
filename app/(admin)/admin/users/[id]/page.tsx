@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getAdminUserDossier } from "@/lib/data/admin-users";
+import { isOwnerActor } from "@/lib/auth/admin-guard";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { UserDossierClient } from "@/components/admin/UserDossierClient";
 
 export const metadata: Metadata = { title: "User dossier · Admin" };
@@ -9,7 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function UserDossierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const dossier = await getAdminUserDossier(id);
+  const [dossier, viewerIsOwner] = await Promise.all([
+    getAdminUserDossier(id),
+    isOwnerActor(createAdminClient()),
+  ]);
 
   if (!dossier) {
     return (
@@ -23,5 +28,5 @@ export default async function UserDossierPage({ params }: { params: Promise<{ id
     );
   }
 
-  return <UserDossierClient d={dossier} />;
+  return <UserDossierClient d={dossier} viewerIsOwner={viewerIsOwner} />;
 }

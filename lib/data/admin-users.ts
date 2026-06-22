@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isOwnerEmail } from "@/lib/auth/admin-accounts";
 
 const DAY = 86_400_000;
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -131,7 +132,7 @@ export type AdminUserDossier = {
     id: string; username: string; fullName: string; avatarUrl: string | null; bannerUrl: string | null; bio: string;
     role: string; plan: string; isVerified: boolean; loyaltyTier: string; loyaltyPoints: number; cashbackBalance: number;
     email: string | null; phone: string | null; showPhone: boolean; socials: Record<string, string>; links: { label: string; url: string }[];
-    telegramChatId: string | null; locale: string; theme: string; birthday: string | null; createdAt: string; isAdmin: boolean;
+    telegramChatId: string | null; locale: string; theme: string; birthday: string | null; createdAt: string; isAdmin: boolean; isOwner: boolean;
     isBanned: boolean; bannedAt: string | null; banReason: string | null; banUntil: string | null;
     restrictions: Record<string, string>; // kind → 'perm' | ISO "until"
     adminNote: string;
@@ -353,7 +354,7 @@ export async function getAdminUserDossier(id: string): Promise<AdminUserDossier 
       email: prof.email, phone: prof.phone, showPhone: !!prof.show_phone, socials: (prof.socials ?? {}) as Record<string, string>,
       links: Array.isArray(prof.links) ? (prof.links as { label: string; url: string }[]) : [],
       telegramChatId: prof.telegram_chat_id ?? null, locale: prof.locale, theme: prof.theme,
-      birthday: prof.birthday, createdAt: prof.created_at, isAdmin: prof.role === "admin",
+      birthday: prof.birthday, createdAt: prof.created_at, isAdmin: prof.role === "admin", isOwner: isOwnerEmail(prof.email),
       isBanned: !!prof.is_banned, bannedAt: prof.banned_at ?? null, banReason: prof.ban_reason ?? null, banUntil: prof.ban_until ?? null,
       restrictions: (prof.restrictions ?? {}) as Record<string, string>,
       adminNote: prof.admin_note ?? "",

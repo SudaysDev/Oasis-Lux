@@ -93,7 +93,7 @@ const RESTRICTIONS: { kind: RestrictKind; label: string; short: string; desc: st
   { kind: "favorite", label: "Block favorites", short: "no fav", desc: "Can't favorite", Icon: Heart },
 ];
 
-export function UserDossierClient({ d }: { d: AdminUserDossier }) {
+export function UserDossierClient({ d, viewerIsOwner = false }: { d: AdminUserDossier; viewerIsOwner?: boolean }) {
   const router = useRouter();
   const p = d.profile;
   const tempActive = !!p.banUntil && new Date(p.banUntil) > new Date();
@@ -149,7 +149,9 @@ export function UserDossierClient({ d }: { d: AdminUserDossier }) {
     loyalty_points: Number(points) || 0, cashback_balance: Number(cashback) || 0, is_verified: verified,
   }), "Profile saved");
 
-  const protectedAdmin = p.isAdmin;
+  // The owner outranks every other admin: the owner can moderate a fellow admin (Waxa),
+  // but the owner account itself is untouchable, and a non-owner admin can't touch any admin.
+  const protectedAdmin = p.isOwner || (p.isAdmin && !viewerIsOwner);
 
   return (
     <div className="mx-auto max-w-6xl pb-12">
@@ -185,7 +187,11 @@ export function UserDossierClient({ d }: { d: AdminUserDossier }) {
             <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black text-white sm:text-3xl">
               {p.fullName || `@${p.username}`}
               {p.isVerified && <BadgeCheck className="h-5 w-5 text-[#34d399]" />}
-              {p.isAdmin && <Crown className="h-5 w-5 text-[#a78bfa]" />}
+              {p.isOwner ? (
+                <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider" style={{ borderColor: "rgba(251,191,36,0.5)", color: "#fbbf24", background: "rgba(251,191,36,0.12)" }}>
+                  <Crown className="h-3.5 w-3.5" /> Owner
+                </span>
+              ) : p.isAdmin ? <Crown className="h-5 w-5 text-[#a78bfa]" /> : null}
             </h1>
             <p className="mt-0.5 font-mono text-sm text-white/55">@{p.username}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -547,8 +553,12 @@ export function UserDossierClient({ d }: { d: AdminUserDossier }) {
             <div className="flex items-start gap-3 rounded-xl border p-4" style={{ borderColor: "rgba(167,139,250,0.35)", background: "rgba(167,139,250,0.08)" }}>
               <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#a78bfa]" />
               <div>
-                <p className="font-bold text-white">Protected admin</p>
-                <p className="text-sm text-white/65">This is one of the grid operators. Another admin can&apos;t edit, restrict, ban or delete this account.</p>
+                <p className="font-bold text-white">{p.isOwner ? "The owner — untouchable" : "Protected admin"}</p>
+                <p className="text-sm text-white/65">
+                  {p.isOwner
+                    ? "This is the creator / owner account. It outranks every operator and can never be edited, restricted, banned or deleted by anyone."
+                    : "This is a grid operator. Only the owner can edit, restrict, ban or delete a fellow admin."}
+                </p>
               </div>
             </div>
           </Card>

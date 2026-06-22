@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { guardModerateUser, isOwnerActor } from "@/lib/auth/admin-guard";
+import { isOwnerEmail } from "@/lib/auth/admin-accounts";
 import { findCommand, parseTerm, tokenize } from "@/lib/admin/commands";
 import {
   adminBanUser, adminUnbanUser, adminSetRestriction, adminUpdateUserProfile,
@@ -334,7 +336,8 @@ async function cmdRestrict(sb: SB, t: string[], on: boolean): Promise<RunResult>
 async function cmdZapret(sb: SB, t: string[], on: boolean): Promise<RunResult> {
   const u = await resolveUser(sb, t[1] ?? "");
   if (!u) return { lines: [err(`✗ no user matched "${t[1] ?? ""}".`)] };
-  if (u.role === "admin") return { lines: [warn("⚠ admins are protected.")] };
+  const zg = await guardModerateUser(sb, u.id);
+  if (zg) return { lines: [warn(`⚠ ${zg}`)] };
   const scopeTok = t.find((x, i) => i >= 2 && x.includes(":"));
   if (!scopeTok) return { lines: [err("✗ give a scope like brand:Dior · category:perfume · color:Black · tag:luxury.")] };
   const [stype, ...vparts] = scopeTok.split(":");
@@ -439,7 +442,8 @@ async function cmdDeleteUser(sb: SB, t: string[]): Promise<RunResult> {
   const u = await resolveUser(sb, t[1] ?? "");
   if (!u) return { lines: [err(`✗ no user matched "${t[1] ?? ""}".`)] };
   if (!/^confirm$/i.test(t[2] ?? "")) return { lines: [warn(`⚠ this is irreversible. Re-run: /delete_user @${u.username} confirm`)] };
-  if (u.role === "admin") return { lines: [warn("⚠ admins are protected — can't be deleted here.")] };
+  const dg = await guardModerateUser(sb, u.id);
+  if (dg) return { lines: [warn(`⚠ ${dg}`)] };
   await sb.auth.admin.deleteUser(u.id);
   revalidatePath("/admin/users");
   return { lines: [ok(`✓ @${u.username} (${u.id}) permanently deleted.`)] };
@@ -772,10 +776,12 @@ async function cmdEdit(sb: SB, t: string[], images: PastedImage[]): Promise<RunR
 
   if (tgt.kind === "user" || tgt.kind === "users") {
     const ids = tgt.kind === "users" ? tgt.ids : [tgt.id];
+    const viewerOwner = await isOwnerActor(sb);
     let applied = 0, skipped = 0;
     for (const id of ids) {
-      const { data } = await sb.from("profiles").select("role").eq("id", id).maybeSingle();
-      if ((data as { role?: string } | null)?.role === "admin") { skipped++; continue; }
+      const { data } = await sb.from("profiles").select("role,email").eq("id", id).maybeSingle();
+      const row = data as { role?: string; email?: string } | null;
+      if (row?.role === "admin" && (isOwnerEmail(row.email) || !viewerOwner)) { skipped++; continue; }
       const { error } = await sb.from("profiles").update({ [field.key]: value }).eq("id", id);
       if (!error) applied++;
     }
@@ -863,11 +869,13 @@ async function cmdDeleteAny(sb: SB, t: string[]): Promise<RunResult> {
   if (!/^confirm$/i.test(t[2] ?? "")) return { lines: [warn(`⚠ irreversible. Re-run: /delete ${t[1]} confirm`)] };
   switch (tgt.kind) {
     case "users": return { lines: [warn("⚠ refusing a bulk delete — remove users one at a time.")] };
-    case "user":
-      if (tgt.role === "admin") return { lines: [warn("⚠ admins are protected.")] };
+    case "user": {
+      const ag = await guardModerateUser(sb, tgt.id);
+      if (ag) return { lines: [warn(`⚠ ${ag}`)] };
       await sb.auth.admin.deleteUser(tgt.id);
       revalidatePath("/admin/users");
       return { lines: [ok(`✓ user @${tgt.username} permanently deleted.`)] };
+    }
     case "product":
       await sb.from("products").delete().eq("id", tgt.id);
       revalidatePath("/admin/products");
@@ -892,10 +900,12 @@ async function cmdGift(sb: SB, t: string[]): Promise<RunResult> {
   const amt = Number(t[3]);
   if (!Number.isFinite(amt)) return { lines: [err(`✗ "${t[3]}" is not a number.`)] };
   const ids = tgt.kind === "users" ? tgt.ids : [tgt.id];
+  const viewerOwner = await isOwnerActor(sb);
   let applied = 0;
   for (const id of ids) {
-    const { data } = await sb.from("profiles").select(`role, ${col}`).eq("id", id).maybeSingle();
-    if ((data as { role?: string } | null)?.role === "admin") continue;
+    const { data } = await sb.from("profiles").select(`role, email, ${col}`).eq("id", id).maybeSingle();
+    const row = data as { role?: string; email?: string } | null;
+    if (row?.role === "admin" && (isOwnerEmail(row.email) || !viewerOwner)) continue;
     const cur = Number((data as Record<string, unknown> | null)?.[col] ?? 0);
     const { error } = await sb.from("profiles").update({ [col]: Math.max(0, cur + amt) }).eq("id", id);
     if (!error) applied++;

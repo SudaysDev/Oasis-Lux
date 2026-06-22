@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { adminBanUser, adminUnbanUser, adminSetRestriction, type RestrictKind } from "@/app/(admin)/admin/users/[id]/actions";
 import { adminSetProductFlag, type ProductFlag } from "@/app/(admin)/admin/products/[id]/actions";
+import { guardModerateUser } from "@/lib/auth/admin-guard";
 
 export type ActionResult = { ok: true; msg?: string } | { ok: false; error: string };
 
@@ -84,7 +85,8 @@ export async function createPurchaseBlock(identifier: string, scopeType: string,
     if (!SCOPES.has(scopeType) || !scopeValue.trim()) return { ok: false, error: "Pick a scope and value." };
     const u = await resolveUser(sb, identifier);
     if (!u) return { ok: false, error: `No user matched "${identifier}".` };
-    if (u.role === "admin") return { ok: false, error: "Admins are protected." };
+    const guard = await guardModerateUser(sb, u.id);
+    if (guard) return { ok: false, error: guard };
     const until = durationMs && durationMs > 0 ? new Date(Date.now() + durationMs).toISOString() : null;
     const { error } = await sb.from("purchase_blocks").upsert({ user_id: u.id, scope_type: scopeType, scope_value: scopeValue.trim(), until }, { onConflict: "user_id,scope_type,scope_value" });
     if (error) return { ok: false, error: error.message };
